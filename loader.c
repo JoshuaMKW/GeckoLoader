@@ -13,10 +13,10 @@ enum { FALSE, TRUE };
 enum { NULL };
 
 struct Info {
-	u32 allocsize;
-	u32 _loaderSize;
-	u32 _loaderFullSize;
-	struct CodeList* _codelistPointer;
+    u32 allocsize;
+    u32 _loaderSize;
+    u32 _loaderFullSize;
+    struct CodeList* _codelistPointer;
     u32 _wiiVIHook[4];
     u32 _gcnVIHook[8];
 };
@@ -150,10 +150,10 @@ void initMods(struct DiscInfo* baseAddress) {
 }
 
 int main() {
-	struct DiscInfo* baseAddress = (struct DiscInfo*)0x80000000;
-	if (baseAddress->mWiiMagic || baseAddress->mGCNMagic) {
-		initMods(baseAddress);
-        (*_codeHandler)(); //Call codehandler
-	}
+    struct DiscInfo* baseAddress = (struct DiscInfo*)0x80000000;
+    if (baseAddress->mWiiMagic || baseAddress->mGCNMagic) {
+	initMods(baseAddress);
+    	(*_codeHandler)(); //Call codehandler
+    }
     (*_init_registers)(); //Call game entry "_init_registers"
 }
