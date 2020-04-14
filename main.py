@@ -1,3 +1,5 @@
+#Written by JoshuaMK 2020
+
 import sys, os, time
 
 def resource_path(relative_path):
@@ -82,7 +84,10 @@ def build(gct, dol, size):
                         if int(lowerAddr, 16) + gInfo > int('7FFF', 16): #Absolute addressing
                             gUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16) + 1))
                             
-                        tmp.write(size)
+                        if size == '0' or size == '':
+                            tmp.write(get_size(gecko))
+                        else:
+                            tmp.write(bytes.fromhex('{:08X}'.format(int(size, 16))))
                         heaped = True
                 elif sample == LOADERSIZE: #Found keyword "LSIZ". Goes with the size of the loader
                     if not sized:
@@ -97,7 +102,7 @@ def build(gct, dol, size):
                         tmp.write(get_size(code, gecko.tell()))
                         fsized = True
             except TypeError as err:
-                print('Fatal error, (' + err + ') build failed to complete')
+                print('Fatal error (' + err + '), build failed to complete')
                 time.sleep(3)
                 sys.exit(1)
 
@@ -277,12 +282,15 @@ if __name__ == "__main__":
 
         
     while True:
-        size = input('Define desired code space. (Hex): ')
+        size = input('Define code allocation in hex. (Type 0 or press Enter on empty input for auto size): ')
         try:
             int(size, 16)
             break
         except Exception:
-            print('Invalid input!')
+            if size == '':
+                break
+            else:
+                print('Invalid input! {} is not hexadecimal!'.format(size))
     time1 = time.time()
 
     HEAP = bytes.fromhex('48454150')
@@ -298,7 +306,6 @@ if __name__ == "__main__":
     IL = bytes.fromhex('494C')
     JH = bytes.fromhex('4A48')
     JL = bytes.fromhex('4A4C')
-    size = bytes.fromhex('{:08X}'.format(int(size, 16)))
 
     try:
         if not os.path.isdir('BUILD'):
