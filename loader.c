@@ -9,6 +9,9 @@
 #define icbi(_val) asm volatile("icbi 0, %0" \
                                 :            \
                                 : "r"(_val))
+#define FALSE 0
+#define TRUE 1
+#define NULL 0
 
 typedef unsigned int u32;
 typedef unsigned short u16;
@@ -18,12 +21,20 @@ typedef short s16;
 typedef char s8;
 typedef u32 BOOL;
 typedef u32 unk32;
+
+__attribute__((noreturn)) int main();
+__attribute__((noinline)) void memCopy();
+__attribute__((noinline)) u32* findVIHook();
+__attribute__((noinline)) u32* findArrayInstance();
+__attribute__((noinline)) u32* findU32Instance();
+
 enum {
-    FALSE,
-    TRUE
-};
-enum {
-    NULL
+    MEM1_START = 0x80000000,
+    MEM1_END = 0x81800000,
+    MEM1_RANGE = MEM1_START - MEM1_END,
+    CODEHANDLER_ENTRY = 0x800018A8,
+    GAME_ENTRY = 0xDEADBEEF,
+    GCT_MAGIC = 0x00D0C0DE
 };
 
 struct Info {
@@ -73,10 +84,6 @@ struct Info gInfo = {
     ._gcnVIHook = { 0x7C030034, 0x38830020, 0x5485083C, 0x7C7F2A14, 0xA0030000, 0x7C7D2A14, 0x20A4003F, 0xB0030000 },
 };
 
-const u32* MEM1_START = 0x80000000;
-const u32* MEM1_END = 0x817FFF00;
-const u32 CODEHANDLER_START = 0x800018A8;
-
 static inline void flushAddr(void* addr)
 {
     dcbf(addr);
@@ -89,45 +96,64 @@ static inline void directWrite(u32* addr, u32 value)
     flushAddr(addr);
 }
 
+/*This constructs a branch instruction. &TO = ((TO - FROM) & MAX_OFFSET) | BRANCH_TYPE | !!isLink*/
 static inline void directBranchEx(void* addr, void* ptr, BOOL lk)
 {
-    directWrite((u32*)(addr), ((((u32)(ptr) - (u32)(addr)) & 0x3ffffff) | 0x48000000 | !!lk)); /*This constructs a branch instruction. &TO = ((TO - FROM) & MAX_OFFSET) | BRANCH_TYPE | !!isLink*/
+    directWrite((u32*)(addr), ((((u32)(ptr) - (u32)(addr)) & 0x3ffffff) | 0x48000000 | !!lk));
 }
 
-void (*_init_registers)(void) = &gInfo; /*Dummy, replace this with the address of the game entry after compile*/
-void (*_codeHandler)(void) = &gInfo; /*Dummy, replace this with the address of the codehandler after compile*/
-
-static inline u32* findFunction(u32* gcnHook, u32* wiiHook, u32 range, BOOL isWii)
+u32* findArrayInstance(u32* start, u32 end, u32 arrayLength, u32* hookData)
 {
-    u32* hookData;
-    u32 arrayLength;
-
-    if (isWii) /*If the game is built for the Wii, set the hookdata to be the Wii variant*/
-    {
-        hookData = wiiHook;
-        arrayLength = sizeof(wiiHook) / sizeof(u32);
-    } else /*The game is built for the GCN, set the hookdata to be the GCN variant*/
-    {
-        hookData = gcnHook;
-        arrayLength = sizeof(gcnHook) / sizeof(u32);
-    }
     u32 index = 0;
-    for (u32 i = 0; (u32)&MEM1_START[i] < (u32)MEM1_START + range; ++i) /*Loop through the games RAM, make sure we don't find our own hook data by accident*/
-    {
-        if (MEM1_START[i] == hookData[index]) /*If the data matches, increase the index counter and continue search, else set index to 0 and continue searching*/
+
+    /*Loop through the games RAM, make sure we don't find our own hook data by accident*/
+    for (u32 i = 0; (u32)&start[i] < end; ++i) {
+        /*If the data matches, increase the index counter and continue search,
+		else set index to 0 and continue searching*/
+        if (start[i] == hookData[index])
             ++index;
         else
             index = 0;
-        if (index >= (arrayLength - 1) && ((u32)&MEM1_START[i] < (u32)&gInfo || (u32)&MEM1_START[i] > (u32)&gInfo + 0x1000)) /*If the data has matched the whole array, return the address of the match*/
-        {
-            return &MEM1_START[i];
+
+        /*If the data has matched the whole array, return the address of the match*/
+        if (index >= (arrayLength - 1) && ((u32)&start[i] < (u32)&gInfo || (u32)&start[i] > (u32)&gInfo + sizeof(gInfo))) {
+            return &start[i];
         }
     }
     return NULL;
 }
 
+u32* findU32Instance(u32* start, u32 end, u32* hookData)
+{
+    for (u32 i = 0; (u32)&start[i] < end; ++i) {
+        if (start[i] == hookData) {
+            return &start[i];
+        }
+    }
+    return NULL;
+}
+
+/*Find VI hook for Game*/
+u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* start, u32 end)
+{
+    u32* hookData;
+    u32 arrayLength;
+
+    /*If the game is built for the Wii, set the hookdata to be the Wii variant*/
+    if (discResources->mWiiMagic) {
+        hookData = infoPointer->_wiiVIHook;
+        arrayLength = sizeof(infoPointer->_wiiVIHook) / sizeof(u32);
+    } else /*The game is built for the GCN, set the hookdata to be the GCN variant*/
+    {
+        hookData = infoPointer->_gcnVIHook;
+        arrayLength = sizeof(infoPointer->_gcnVIHook) / sizeof(u32);
+    }
+    return findArrayInstance(start, end, arrayLength, hookData);
+}
+
+/*Call this after findFunction, finds the address of the first instance
+of value hookInstruction, and hooks it to the pointer hookTo*/
 void hookFunction(u32* start, u32 hookInstruction, u32 hookTo, BOOL isLink)
-/*Call this after findFunction, finds the address of the first instance of value hookInstruction, and hooks it to the pointer hookTo*/
 {
     int i = 0;
     while (start[i] != hookInstruction) {
@@ -136,14 +162,22 @@ void hookFunction(u32* start, u32 hookInstruction, u32 hookTo, BOOL isLink)
     directBranchEx((u32*)(&start[i]), (void*)(hookTo), isLink);
 }
 
-static inline void setHeap(struct DiscInfo* discResources, struct Info* infoPointer, BOOL isWii)
-/*Reallocate the games internal memory heap based on the console the game is for, to make space for our codes*/
+/*Reallocate the games internal memory heap based on the console
+the game is for, to make space for our codes*/
+static inline void setHeap(struct DiscInfo* discResources, u32 alloc)
 {
-    if (isWii) {
-        discResources->mHeapPointer = (u32*)(u32)discResources->mWiiHeap - infoPointer->allocsize;
+    if (discResources->mWiiMagic) {
+        discResources->mHeapPointer = (u32*)((u32)discResources->mWiiHeap - alloc);
         discResources->mWiiHeap = (u32)discResources->mHeapPointer;
     } else {
-        discResources->mHeapPointer = (u32*)(u32)discResources->mHeapPointer - infoPointer->allocsize;
+        discResources->mHeapPointer = (u32*)((u32)discResources->mHeapPointer - alloc);
+    }
+}
+
+void memCopy(u32* to, u32* from, s32 size)
+{
+    for (s32 i = 0; i < size; ++i) {
+        to[i] = from[i];
     }
 }
 
@@ -151,41 +185,44 @@ BOOL initMods(struct DiscInfo* discResources)
 {
     struct Info* infoPointer = &gInfo;
     const u32* geckoPointerInit = (u32*)(MEM1_START + 0x18F8);
-    s32 sizeDiff = infoPointer->_loaderFullSize - infoPointer->_loaderSize; /*Calculate size of codelist*/
+    s32 sizeDiff = (infoPointer->_loaderFullSize - infoPointer->_loaderSize) / 4; /*Calculate size of codelist*/
     const u32* sourcePointer = (u32*)(infoPointer);
 
-    if (!infoPointer->_codelistPointer)
+    if (infoPointer->_codelistPointer == NULL)
         return FALSE; /*Pointer is null*/
-    else {
-        setHeap(discResources, infoPointer, (discResources->mWiiMagic != 0)); /*Reallocate the internal heap*/
-        if (infoPointer->_loaderFullSize == 0 || infoPointer->_loaderSize == 0 || sizeDiff <= 0)
-            return FALSE; /*Invalid values*/
-        else {
-            while (sizeDiff > 0) /*Copy codelist to the new allocation*/
-            {
-                sizeDiff = sizeDiff - 4;
-                discResources->mHeapPointer[sizeDiff / 4] = sourcePointer[sizeDiff / 4];
-            }
-            infoPointer->_codelistPointer->mUpperBase = ((u32)discResources->mHeapPointer >> 16) & 0xFFFF; /*Change upper codelist pointer to the new address in the allocation*/
-            infoPointer->_codelistPointer->mLowerOffset = (u32)(discResources->mHeapPointer) & 0xFFFF; /*Change lower codelist pointer to the new address in the allocation*/
-            flushAddr(&infoPointer->_codelistPointer->mUpperBase);
-            flushAddr(&infoPointer->_codelistPointer->mLowerOffset);
 
-            u32* functionAddr = findFunction(infoPointer->_gcnVIHook, infoPointer->_wiiVIHook, (MEM1_END - MEM1_START), (discResources->mWiiMagic != 0));
-            if (functionAddr) {
-                hookFunction(functionAddr, 0x4E800020, CODEHANDLER_START, FALSE);
-                return TRUE;
-            }
-        }
+    setHeap(discResources, infoPointer->allocsize); /*Reallocate the internal heap*/
+    if (infoPointer->_loaderFullSize == NULL || infoPointer->_loaderSize == NULL || sizeDiff <= 0)
+        return FALSE; /*Invalid values*/
+
+    /*Copy codelist to the new allocation*/
+    memCopy(discResources->mHeapPointer, findU32Instance((u32*)&gInfo, MEM1_END, (u32*)GCT_MAGIC), sizeDiff);
+
+    /*Change upper codelist pointer to the new address in the allocation*/
+    infoPointer->_codelistPointer->mUpperBase = ((u32)discResources->mHeapPointer >> 16) & 0xFFFF;
+
+    /*Change lower codelist pointer to the new address in the allocation*/
+    infoPointer->_codelistPointer->mLowerOffset = (u32)(discResources->mHeapPointer) & 0xFFFF;
+
+    /*Update the cache, so that the instructions fully update*/
+    flushAddr(&infoPointer->_codelistPointer->mUpperBase);
+    flushAddr(&infoPointer->_codelistPointer->mLowerOffset);
+
+    u32* functionAddr = findVIHook(discResources, infoPointer, (u32*)MEM1_START, MEM1_END);
+    if (functionAddr == NULL) {
+        return FALSE;
     }
+    hookFunction(functionAddr, 0x4E800020, CODEHANDLER_ENTRY, FALSE);
+    return TRUE;
 }
 
 int main()
 {
     struct DiscInfo* discResources = (struct DiscInfo*)MEM1_START;
     if (discResources->mWiiMagic || discResources->mGCNMagic) {
-        if (initMods(discResources) == TRUE)
-            (*_codeHandler)(); /*Call the codehandler if successful*/
+        if (initMods(discResources) == TRUE) {
+            ((void (*)())CODEHANDLER_ENTRY)(); /*Call the codehandler if successful*/
+        }
     }
-    (*_init_registers)(); /*Call the game start*/
+    ((void (*)())GAME_ENTRY)(); /*Call the game start*/
 }
