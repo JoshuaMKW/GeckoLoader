@@ -70,7 +70,7 @@ def geckoParser(geckoText, parseAll):
     return [bytes.fromhex(geckoCodes), geckoSize]
 
 def build(gctFile, dolFile, size, isText):
-    with open(resource_path('sme-code.bin'), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(r'{}'.format(gctFile), 'rb') as gecko, open(resource_path('codehandler.bin'), 'rb') as handler, open('tmp.bin', 'wb+') as tmp, open(os.path.join('BUILD', dolFile), 'wb+') as final:
+    with open(resource_path('sme-code.bin'), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(r'{}'.format(gctFile), 'rb') as gecko, open(resource_path('codehandler.bin'), 'rb') as handler, open('tmp.bin', 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
 
         if int(get_size(dol).hex(), 16) < int('0x100', 16):
             os.remove('tmp.bin')
