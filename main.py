@@ -70,7 +70,14 @@ def geckoParser(geckoText, parseAll):
     return [bytes.fromhex(geckoCodes), geckoSize]
 
 def build(gctFile, dolFile, size, isText):
-    with open(resource_path('sme-code.bin'), 'rb') as code, open(dolFile, 'rb+') as dol, open(gctFile, 'rb') as gecko, open(resource_path('codehandler.bin'), 'rb') as handler, open('tmp.bin', 'wb+') as tmp, open(os.path.join('BUILD', dolFile), 'wb+') as final:
+    with open(resource_path('sme-code.bin'), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(r'{}'.format(gctFile), 'rb') as gecko, open(resource_path('codehandler.bin'), 'rb') as handler, open('tmp.bin', 'wb+') as tmp, open(os.path.join('BUILD', dolFile), 'wb+') as final:
+
+        if int(get_size(dol).hex(), 16) < int('0x100', 16):
+            os.remove('tmp.bin')
+            parser.error('DOL header is corrupted. Please provide a clean file')
+
+        dol.seek(0)
+
         '''Initialize the new DOL file'''
 
         final.write(dol.read())
@@ -238,7 +245,8 @@ def build(gctFile, dolFile, size, isText):
                 i += 1
 
         if status == False:
-            parser.error(TREDLIT + '\n  :: ERROR: Not enough text sections to patch the DOL file! Potentially due to previous mods?\n' + TRESET)
+            os.remove('tmp.bin')
+            parser.error(TREDLIT + 'Not enough text sections to patch the DOL file! Potentially due to previous mods?\n' + TRESET)
         
         if isText == False:
             if int(size, 16) < int(get_size(gecko).hex(), 16):
@@ -288,18 +296,6 @@ def get_size(file, offset=0):
 
 if __name__ == "__main__":
 
-    colorama.init()
-
-    TRESET = '\033[0m'
-    TBOLD = '\033[1m'
-
-    TGREEN = '\033[32m'
-    TGREENLIT = '\033[92m'
-    TYELLOW = '\033[33m'
-    TYELLOWLIT = '\033[93m'
-    TRED = '\033[31m'
-    TREDLIT = '\033[91m'
-
     isText = False
 
     parser = argparse.ArgumentParser(description='Process files and allocations for GeckoLoader')
@@ -317,7 +313,7 @@ if __name__ == "__main__":
         try:
             int(size, 16)
         except:
-            parser.error(TREDLIT + '\n  :: ERROR: The allocation was invalid\n'  + TRESET)
+            parser.error('The allocation was invalid\n')
     else:
         size = '0'
 
@@ -326,7 +322,7 @@ if __name__ == "__main__":
     elif os.path.splitext(args.file2)[1].lower() == '.dol':
         dolFile = args.file2
     else:
-        parser.error(TREDLIT + '\n  :: ERROR: No dol file was passed\n'  + TRESET)
+        parser.error('No dol file was passed\n')
 
     if os.path.splitext(args.file)[1].lower() == '.gct':
         gctFile = args.file
@@ -341,7 +337,7 @@ if __name__ == "__main__":
         gctFile = args.file2
         isText = True
     else:
-        parser.error(TREDLIT + '\n  ::  ERROR: Neither a gct or gecko text file was passed\n'  + TRESET)
+        parser.error('Neither a gct or gecko text file was passed\n')
     
     time1 = time.time()
 
@@ -362,10 +358,18 @@ if __name__ == "__main__":
     try:
         if not os.path.isdir('BUILD'):
             os.mkdir('BUILD')
+            
+        if not os.path.isfile(dolFile):
+            parser.error(dolFile + ' Does not exist')
+            
+        if not os.path.isfile(gctFile):
+            parser.error(gctFile + ' Does not exist')
+            
         build(gctFile, dolFile, size, isText)
+        
         os.remove('tmp.bin')
         if not args.quiet:
-            print(TGREENLIT + '\n  :: Compiled in {:0.4f} seconds!\n'.format(time.time() - time1)  + TRESET)
+            print('\n  :: Compiled in {:0.4f} seconds!\n'.format(time.time() - time1))
 
     except FileNotFoundError as err:
         parser.error(err)
