@@ -1,20 +1,10 @@
 # GeckoLoader
-**An easy way to have near unlimited code space, allowing thousands of lines of gecko code for every Wii/GCN game.**
+**An easy way to have near unlimited code space, allowing thousands of lines of gecko code for every Wii/GCN game.*
 
-**Steps to compile using source files:**
+**Steps to compile GeckoLoader**
 
-   1. Extract main.dol/Start.dol (varies by extraction method) from the desired game into the same directory as "main.py"
-   2. Move your GCT into the same directory as "main.py"
-   3. Run main.py and input the names of the main.dol/Start.dol, and the GCT.
-   4. Define your code allocation in hex: 30000 = 0x30000 (Press enter on empty string or set size to 0 to have it calculate the size for you)
+   1. Extract main.dol/Start.dol (varies by extraction method) from the desired game into the same directory as "GeckoLoader.exe"
+   2. Move your GCT into the same directory as "GeckoLoader.exe"
+   3. In command prompt, input: GeckoLoader.exe -h, for help on syntax and options, then run accordingly
 
-   Your new patched main.dol/Start.dol will be in the folder ./BUILD/
-
-**Steps to compile using Release Build:**
-
-   1. Extract main.dol/Start.dol (varies by extraction method) from the desired game into the same directory as "main.py"
-   2. Move your GCT into the same directory as "main.exe"
-   3. Either run main.exe and input the names of the main.dol/Start.dol, and the GCT, OR drag the main.dol/Start.dol and the GCT onto main.exe and drop them
-   4. Define your code allocation in hex: 30000 = 0x30000 (Press enter on empty string or set size to 0 to have it calculate the size for you)
-
-  Your new patched main.dol/Start.dol will be in the folder ./BUILD/
+Your new patched main.dol/Start.dol will be in the folder ./BUILD/
