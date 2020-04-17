@@ -202,19 +202,34 @@ def build(gctFile, dolFile, size, isText):
             if textOffset == 0:
                 status = True
                 offset = i * 4
+
+                '''Write offset to each section in DOL file header'''
                 final.seek(-4, 1)
                 final.write(dol_handler_offset)
                 final.write(dol_sme_offset)
                 
                 final.seek(int('48', 16) + offset)
+
+                '''Write in game memory addresses for each section in DOL file header'''
                 final.write(bytes.fromhex('80001800'))
                 final.write(cLoader)
                 final.seek(int('E0', 16))
+
+                '''Write game entry in DOL file header'''
                 final.write(_START)
+
+                '''Get size of GeckoLoader + gecko codes, and the codehandler'''
                 handler_size = get_size(handler)
+
                 tmp.seek(0, 2)
                 gecko.seek(0, 2)
-                sme_code_size = get_size(tmp, gecko.tell())
+
+                if isText == True:
+                    sme_code_size = get_size(tmp, int(geckoCheats[1], 16))
+                else:
+                    sme_code_size = get_size(tmp, gecko.tell())
+
+                '''Write size of each section into DOL file header'''
                 final.seek(int('90', 16) + offset)
                 final.write(handler_size)
                 final.write(sme_code_size)
@@ -225,9 +240,13 @@ def build(gctFile, dolFile, size, isText):
         if status == False:
             parser.error(TREDLIT + '\n  :: ERROR: Not enough text sections to patch the DOL file! Potentially due to previous mods?\n' + TRESET)
         
-        if int(size, 16) < int(get_size(gecko).hex(), 16):
-            print(TYELLOW + '\n  :: WARNING: Allocated codespace was smaller than the given codelist. The game will crash if run' + TRESET)
-        
+        if isText == False:
+            if int(size, 16) < int(get_size(gecko).hex(), 16):
+                print(TYELLOW + '\n  :: WARNING: Allocated codespace was smaller than the given codelist. The game will crash if run' + TRESET)
+        else:
+            if int(size, 16) < int(geckoCheats[1], 16):
+                print(TYELLOW + '\n  :: WARNING: Allocated codespace was smaller than the given codelist. The game will crash if run' + TRESET)
+
         if args.quiet:
             return
 
