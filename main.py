@@ -144,8 +144,7 @@ def build(gctFile, dolFile, size, isText):
                                 size = get_size(gecko).hex().upper()
                             else:
                                 size = geckoCheats[1]
-                        else:
-                            tmp.write(bytes.fromhex('{:08X}'.format(int(size, 16))))
+                        tmp.write(bytes.fromhex('{:08X}'.format(int(size, 16))))
                         heaped = True
                         
                 elif sample == LOADERSIZE: #Found keyword "LSIZ". Goes with the size of the loader
@@ -159,10 +158,13 @@ def build(gctFile, dolFile, size, isText):
                         tmp.seek(-4, 1)
                         code.seek(0, 2)
                         gecko.seek(0, 2)
-                        tmp.write(get_size(code, gecko.tell()))
+                        if isText == True:
+                            tmp.write(get_size(code, int(geckoCheats[1], 16)))
+                        else:
+                            tmp.write(get_size(code, gecko.tell()))
                         fsized = True
-            except TypeError as err:
-                parser.error(err)
+            except Exception as err:
+                print(err)
                 sys.exit(1)
 
         '''Patch all load/store offsets to data'''
@@ -344,16 +346,11 @@ if __name__ == "__main__":
     HEAP = bytes.fromhex('48454150')
     LOADERSIZE = bytes.fromhex('4C53495A')
     FULLSIZE = bytes.fromhex('4653495A')
-    HOOK = bytes.fromhex('484F4F4B')
     ENTRY = bytes.fromhex('454E5452')
     GH = bytes.fromhex('4748')
     GL = bytes.fromhex('474C')
-    CH = bytes.fromhex('4348')
-    CL = bytes.fromhex('434C')
     IH = bytes.fromhex('4948')
     IL = bytes.fromhex('494C')
-    JH = bytes.fromhex('4A48')
-    JL = bytes.fromhex('4A4C')
 
     try:
         if not os.path.isdir('BUILD'):
