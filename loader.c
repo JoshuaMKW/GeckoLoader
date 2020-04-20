@@ -23,10 +23,6 @@ typedef u32 BOOL;
 typedef u32 unk32;
 
 __attribute__((noreturn)) int main();
-__attribute__((noinline)) void memCopy();
-__attribute__((noinline)) u32* findVIHook();
-__attribute__((noinline)) u32* findArrayInstance();
-__attribute__((noinline)) u32* findU32Instance();
 
 enum {
     MEM1_START = 0x80000000,
@@ -44,6 +40,7 @@ struct Info {
     struct CodeList* _codelistPointer;
     u32 _wiiVIHook[4];
     u32 _gcnVIHook[8];
+    u32 otherModPointer[4];
 };
 
 struct CodeList {
@@ -84,6 +81,8 @@ struct Info gInfo = {
     ._gcnVIHook = { 0x7C030034, 0x38830020, 0x5485083C, 0x7C7F2A14, 0xA0030000, 0x7C7D2A14, 0x20A4003F, 0xB0030000 },
 };
 
+//struct Info* infoPointer = &gInfo;
+
 static inline void flushAddr(void* addr)
 {
     dcbf(addr);
@@ -102,7 +101,7 @@ static inline void directBranchEx(void* addr, void* ptr, BOOL lk)
     directWrite((u32*)(addr), ((((u32)(ptr) - (u32)(addr)) & 0x3ffffff) | 0x48000000 | !!lk));
 }
 
-u32* findArrayInstance(u32* start, u32 end, u32 arrayLength, u32* hookData)
+static inline u32* findArrayInstance(u32* start, u32 end, u32 arrayLength, u32* hookData)
 {
     u32 index = 0;
 
@@ -123,7 +122,7 @@ u32* findArrayInstance(u32* start, u32 end, u32 arrayLength, u32* hookData)
     return NULL;
 }
 
-u32* findU32Instance(u32* start, u32 end, u32* hookData)
+static inline u32* findU32Instance(u32* start, u32 end, u32* hookData)
 {
     for (u32 i = 0; (u32)&start[i] < end; ++i) {
         if (start[i] == hookData) {
@@ -134,7 +133,7 @@ u32* findU32Instance(u32* start, u32 end, u32* hookData)
 }
 
 /*Find VI hook for Game*/
-u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* start, u32 end)
+static inline u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* start, u32 end)
 {
     u32* hookData;
     u32 arrayLength;
@@ -153,7 +152,7 @@ u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* s
 
 /*Call this after findFunction, finds the address of the first instance
 of value hookInstruction, and hooks it to the pointer hookTo*/
-void hookFunction(u32* start, u32 hookInstruction, u32 hookTo, BOOL isLink)
+static inline void hookFunction(volatile u32* start, u32 hookInstruction, u32 hookTo, BOOL isLink)
 {
     int i = 0;
     while (start[i] != hookInstruction) {
@@ -174,41 +173,39 @@ static inline void setHeap(struct DiscInfo* discResources, u32 alloc)
     }
 }
 
-void memCopy(u32* to, u32* from, s32 size)
+static inline void memCopy(u32* to, u32* from, s32 size)
 {
     for (s32 i = 0; i < size; ++i) {
         to[i] = from[i];
     }
 }
 
-BOOL initMods(struct DiscInfo* discResources)
+static inline BOOL initMods(struct DiscInfo* discResources)
 {
-    struct Info* infoPointer = &gInfo;
     const u32* geckoPointerInit = (u32*)(MEM1_START + 0x18F8);
-    s32 sizeDiff = (infoPointer->_loaderFullSize - infoPointer->_loaderSize) / 4; /*Calculate size of codelist*/
-    const u32* sourcePointer = (u32*)(infoPointer);
+    s32 sizeDiff = (gInfo._loaderFullSize - gInfo._loaderSize) / 4; /*Calculate size of codelist*/
+    const u32* sourcePointer = (u32*)(&gInfo);
 
-    if (infoPointer->_codelistPointer == NULL)
+    if (gInfo._codelistPointer == NULL)
         return FALSE; /*Pointer is null*/
 
-    setHeap(discResources, infoPointer->allocsize); /*Reallocate the internal heap*/
-    if (infoPointer->_loaderFullSize == NULL || infoPointer->_loaderSize == NULL || sizeDiff <= 0)
+    setHeap(discResources, gInfo.allocsize); /*Reallocate the internal heap*/
+    if (gInfo._loaderFullSize == NULL || gInfo._loaderSize == NULL || sizeDiff <= 0)
         return FALSE; /*Invalid values*/
 
     /*Copy codelist to the new allocation*/
     memCopy(discResources->mHeapPointer, findU32Instance((u32*)&gInfo, MEM1_END, (u32*)GCT_MAGIC), sizeDiff);
 
     /*Change upper codelist pointer to the new address in the allocation*/
-    infoPointer->_codelistPointer->mUpperBase = ((u32)discResources->mHeapPointer >> 16) & 0xFFFF;
+    gInfo._codelistPointer->mUpperBase = ((u32)discResources->mHeapPointer >> 16) & 0xFFFF;
 
     /*Change lower codelist pointer to the new address in the allocation*/
-    infoPointer->_codelistPointer->mLowerOffset = (u32)(discResources->mHeapPointer) & 0xFFFF;
+    gInfo._codelistPointer->mLowerOffset = (u32)(discResources->mHeapPointer) & 0xFFFF;
 
     /*Update the cache, so that the instructions fully update*/
-    flushAddr(&infoPointer->_codelistPointer->mUpperBase);
-    flushAddr(&infoPointer->_codelistPointer->mLowerOffset);
+    flushAddr(&gInfo._codelistPointer->mBaseASM);
 
-    u32* functionAddr = findVIHook(discResources, infoPointer, (u32*)MEM1_START, MEM1_END);
+    volatile u32* functionAddr = findVIHook(discResources, &gInfo, (u32*)MEM1_START, MEM1_END);
     if (functionAddr == NULL) {
         return FALSE;
     }
