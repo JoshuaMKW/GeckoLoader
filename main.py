@@ -70,7 +70,7 @@ def geckoParser(geckoText, parseAll):
     return [bytes.fromhex(geckoCodes), geckoSize]
 
 def build(gctFile, dolFile, size, isText):
-    with open(resource_path('sme-code.bin'), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(r'{}'.format(gctFile), 'rb') as gecko, open(resource_path('codehandler.bin'), 'rb') as handler, open('tmp.bin', 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
+    with open(resource_path('geckoloader.bin'), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(r'{}'.format(gctFile), 'rb') as gecko, open(resource_path('codehandler.bin'), 'rb') as handler, open('tmp.bin', 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
 
         if int(get_size(dol).hex(), 16) < int('0x100', 16):
             os.remove('tmp.bin')
@@ -185,7 +185,8 @@ def build(gctFile, dolFile, size, isText):
                 tmp.seek(-2, 1)
                 tmp.write(_init[1])
             sample = tmp.read(2)
-                
+        
+        final.seek(0, 2)     
         tmp.seek(0)
         gecko.seek(0)
         
@@ -276,7 +277,7 @@ def build(gctFile, dolFile, size, isText):
             info = [TGREENLIT + '  :: GeckoLoader set at address 0x{}, start of game modified to address 0x{}'.format(dump_address.upper(), _START.hex().upper()),
                     '  :: Game function "_init_registers" located at address 0x{}{}'.format(_init[0].hex(), _init[1].hex().upper()),
                     '  :: Code allocation is 0x{}; codelist size is 0x{}'.format(size.upper().lstrip('0'), codelistSize),
-                    '  :: Of the 6 text sections in this DOL file, {} were already used'.format(i)  + TRESET]
+                    '  :: Of the 7 text sections in this DOL file, {} were already used'.format(i)  + TRESET]
             
             for bit in info:
                 print(bit)
@@ -351,6 +352,7 @@ if __name__ == "__main__":
     GL = bytes.fromhex('474C')
     IH = bytes.fromhex('4948')
     IL = bytes.fromhex('494C')
+    MODFIELD = [bytes.fromhex('BBBBBBBB'), bytes.fromhex('CCCCCCCC'), bytes.fromhex('DDDDDDDD'), bytes.fromhex('EEEEEEEE')]
 
     try:
         if not os.path.isdir('BUILD'):
