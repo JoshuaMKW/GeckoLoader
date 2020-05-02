@@ -30,7 +30,6 @@ __attribute__((noreturn)) int main();
 enum {
     MEM1_START = 0x80000000,
     MEM1_END = 0x81800000,
-    MEM1_RANGE = MEM1_START - MEM1_END,
     CODEHANDLER_ENTRY = 0x800018A8,
     GAME_ENTRY = 0xDEADBEEF,
     GCT_MAGIC = 0x00D0C0DE
@@ -185,9 +184,8 @@ static inline void memCopy(u32* to, u32* from, s32 size)
 
 static inline BOOL initMods(struct DiscInfo* discResources)
 {
-    s32 sizeDiff = (gInfo._loaderFullSize - gInfo._loaderSize) / 4; /*Calculate size of codelist*/
-
     setHeap(discResources, gInfo.allocsize); /*Reallocate the internal heap*/
+    s32 sizeDiff = (gInfo._loaderFullSize - gInfo._loaderSize) / 4; /*Calculate size of codelist*/
 
     /*Copy codelist to the new allocation*/
     memCopy(discResources->mHeapPointer, findU32Instance((u32*)&gInfo, MEM1_END, GCT_MAGIC), sizeDiff);
