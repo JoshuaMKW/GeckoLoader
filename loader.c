@@ -198,7 +198,8 @@ static inline BOOL initMods(struct DiscInfo* discResources)
     flushAddr(&gInfo._codelistPointer->mBaseASM);
 
     volatile u32* functionAddr = findVIHook(discResources, &gInfo, (u32*)MEM1_START, MEM1_END);
-    if (functionAddr == NULL) return FALSE;
+    if (functionAddr == NULL)
+        return FALSE;
     hookFunction(functionAddr, 0x4E800020, CODEHANDLER_ENTRY, FALSE);
     return TRUE;
 }
