@@ -9,6 +9,9 @@
 #define icbi(_val) asm volatile("icbi 0, %0" \
                                 :            \
                                 : "r"(_val))
+
+#define callFunction(addr) ((void (*)())addr)()
+
 #define FALSE 0
 #define TRUE 1
 #define NULL 0
@@ -34,13 +37,13 @@ enum {
 };
 
 struct Info {
-    u32 allocsize;
-    u32 _loaderSize;
-    u32 _loaderFullSize;
+    const u32 allocsize;
+    const u32 _loaderSize;
+    const u32 _loaderFullSize;
     struct CodeList* _codelistPointer;
-    u32 _wiiVIHook[4];
-    u32 _gcnVIHook[8];
-    u32 otherModPointer[4];
+    const u32 _wiiVIHook[4];
+    const u32 _gcnVIHook[8];
+    const u32 otherModPointer[4];
 };
 
 struct CodeList {
@@ -51,20 +54,20 @@ struct CodeList {
 };
 
 struct DiscInfo {
-    u8 mDiscID;
-    u16 mGameCode;
-    u8 mRegionCode;
-    u16 mMakerCode;
-    u8 mDiscNumber;
-    u8 mDiscVersion;
-    u8 mAudioStreaming;
-    u8 mStreamBufferSize;
-    u8 mUnknown[12];
-    u32 mWiiMagic;
-    u32 mGCNMagic;
-    u32 mUnknown2[2];
+    const u8 mDiscID;
+    const u16 mGameCode;
+    const u8 mRegionCode;
+    const u16 mMakerCode;
+    const u8 mDiscNumber;
+    const u8 mDiscVersion;
+    const u8 mAudioStreaming;
+    const u8 mStreamBufferSize;
+    const u8 mUnknown[12];
+    const u32 mWiiMagic;
+    const u32 mGCNMagic;
+    const u32 mUnknown2[2];
     u32 mRAMSize;
-    u32 mUnknown3[2];
+    const u32 mUnknown3[2];
     u32* mHeapPointer;
     u32 mHeapMirror;
     u32 mFstSize;
@@ -91,7 +94,7 @@ static inline void flushAddr(void* addr)
 
 static inline void directWrite(u32* addr, u32 value)
 {
-    addr[0] = value;
+    *addr = value;
     flushAddr(addr);
 }
 
@@ -101,7 +104,7 @@ static inline void directBranchEx(void* addr, void* ptr, BOOL lk)
     directWrite((u32*)(addr), ((((u32)(ptr) - (u32)(addr)) & 0x3ffffff) | 0x48000000 | !!lk));
 }
 
-static inline u32* findArrayInstance(u32* start, u32 end, u32 arrayLength, u32* hookData)
+static inline u32* findArrayInstance(u32* start, const u32 end, const u32 arrayLength, const u32* hookData)
 {
     u32 index = 0;
 
@@ -115,14 +118,14 @@ static inline u32* findArrayInstance(u32* start, u32 end, u32 arrayLength, u32* 
             index = 0;
 
         /*If the data has matched the whole array, return the address of the match*/
-        if (index >= (arrayLength - 1) && ((u32)&start[i] < (u32)&gInfo || (u32)&start[i] > (u32)&gInfo + sizeof(gInfo))) {
+        if (index > (arrayLength) && ((u32)&start[i] < (u32)&gInfo || (u32)&start[i] > (u32)&gInfo + sizeof(gInfo))) {
             return &start[i];
         }
     }
     return NULL;
 }
 
-static inline u32* findU32Instance(u32* start, u32 end, u32* hookData)
+static inline u32* findU32Instance(u32* start, u32 end, u32 hookData)
 {
     for (u32 i = 0; (u32)&start[i] < end; ++i) {
         if (start[i] == hookData) {
@@ -133,21 +136,21 @@ static inline u32* findU32Instance(u32* start, u32 end, u32* hookData)
 }
 
 /*Find VI hook for Game*/
-static inline u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* start, u32 end)
+static inline u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* start, const u32 end)
 {
-    u32* hookData;
+    const u32* hookData;
     u32 arrayLength;
 
     /*If the game is built for the Wii, set the hookdata to be the Wii variant*/
     if (discResources->mWiiMagic) {
-        hookData = infoPointer->_wiiVIHook;
+        hookData = (const u32*)infoPointer->_wiiVIHook;
         arrayLength = sizeof(infoPointer->_wiiVIHook) / sizeof(u32);
     } else /*The game is built for the GCN, set the hookdata to be the GCN variant*/
     {
-        hookData = infoPointer->_gcnVIHook;
+        hookData = (const u32*)infoPointer->_gcnVIHook;
         arrayLength = sizeof(infoPointer->_gcnVIHook) / sizeof(u32);
     }
-    return findArrayInstance(start, end, arrayLength, hookData);
+    return findArrayInstance(start, end, (const u32)arrayLength, hookData);
 }
 
 /*Call this after findFunction, finds the address of the first instance
@@ -182,33 +185,22 @@ static inline void memCopy(u32* to, u32* from, s32 size)
 
 static inline BOOL initMods(struct DiscInfo* discResources)
 {
-    const u32* geckoPointerInit = (u32*)(MEM1_START + 0x18F8);
     s32 sizeDiff = (gInfo._loaderFullSize - gInfo._loaderSize) / 4; /*Calculate size of codelist*/
-    const u32* sourcePointer = (u32*)(&gInfo);
-
-    if (gInfo._codelistPointer == NULL)
-        return FALSE; /*Pointer is null*/
 
     setHeap(discResources, gInfo.allocsize); /*Reallocate the internal heap*/
-    if (gInfo._loaderFullSize == NULL || gInfo._loaderSize == NULL || sizeDiff <= 0)
-        return FALSE; /*Invalid values*/
 
     /*Copy codelist to the new allocation*/
-    memCopy(discResources->mHeapPointer, findU32Instance((u32*)&gInfo, MEM1_END, (u32*)GCT_MAGIC), sizeDiff);
+    memCopy(discResources->mHeapPointer, findU32Instance((u32*)&gInfo, MEM1_END, GCT_MAGIC), sizeDiff);
 
-    /*Change upper codelist pointer to the new address in the allocation*/
+    /*Change codelist pointer to the new address in the allocation*/
     gInfo._codelistPointer->mUpperBase = ((u32)discResources->mHeapPointer >> 16) & 0xFFFF;
-
-    /*Change lower codelist pointer to the new address in the allocation*/
     gInfo._codelistPointer->mLowerOffset = (u32)(discResources->mHeapPointer) & 0xFFFF;
 
     /*Update the cache, so that the instructions fully update*/
     flushAddr(&gInfo._codelistPointer->mBaseASM);
 
     volatile u32* functionAddr = findVIHook(discResources, &gInfo, (u32*)MEM1_START, MEM1_END);
-    if (functionAddr == NULL) {
-        return FALSE;
-    }
+    if (functionAddr == NULL) return FALSE;
     hookFunction(functionAddr, 0x4E800020, CODEHANDLER_ENTRY, FALSE);
     return TRUE;
 }
@@ -218,8 +210,8 @@ int main()
     struct DiscInfo* discResources = (struct DiscInfo*)MEM1_START;
     if (discResources->mWiiMagic || discResources->mGCNMagic) {
         if (initMods(discResources) == TRUE) {
-            ((void (*)())CODEHANDLER_ENTRY)(); /*Call the codehandler if successful*/
+            callFunction(CODEHANDLER_ENTRY); /*Call the codehandler if successful*/
         }
     }
-    ((void (*)())GAME_ENTRY)(); /*Call the game start*/
+    callFunction(GAME_ENTRY); /*Call the game start*/
 }
