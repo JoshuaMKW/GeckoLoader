@@ -117,7 +117,7 @@ static inline u32* findArrayInstance(u32* start, const u32 end, const u32 arrayL
             index = 0;
 
         /*If the data has matched the whole array, return the address of the match*/
-        if (index > (arrayLength) && ((u32)&start[i] < (u32)&gInfo || (u32)&start[i] > (u32)&gInfo + sizeof(gInfo))) {
+        if (index >= (arrayLength) && ((u32)&start[i] < (u32)&gInfo || (u32)&start[i] > (u32)&gInfo + sizeof(gInfo))) {
             return &start[i];
         }
     }
@@ -137,8 +137,8 @@ static inline u32* findU32Instance(u32* start, u32 end, u32 hookData)
 /*Find VI hook for Game*/
 static inline u32* findVIHook(struct DiscInfo* discResources, struct Info* infoPointer, u32* start, const u32 end)
 {
-    const u32* hookData;
-    u32 arrayLength;
+    volatile const u32* hookData;
+    volatile u32 arrayLength;
 
     /*If the game is built for the Wii, set the hookdata to be the Wii variant*/
     if (discResources->mWiiMagic) {
@@ -197,9 +197,8 @@ static inline BOOL initMods(struct DiscInfo* discResources)
     /*Update the cache, so that the instructions fully update*/
     flushAddr(&gInfo._codelistPointer->mBaseASM);
 
-    volatile u32* functionAddr = findVIHook(discResources, &gInfo, (u32*)MEM1_START, MEM1_END);
-    if (functionAddr == NULL)
-        return FALSE;
+    u32* functionAddr = findVIHook(discResources, &gInfo, (u32*)MEM1_START, MEM1_END);
+    if (functionAddr == NULL) return FALSE;
     hookFunction(functionAddr, 0x4E800020, CODEHANDLER_ENTRY, FALSE);
     return TRUE;
 }
