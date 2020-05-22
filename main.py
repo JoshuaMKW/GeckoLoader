@@ -40,8 +40,27 @@ def resource_path(relative_path):
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
-def geckoParser(geckoText, parseAll):
+def get_size(file, offset=0):
+    """ Return a file's size in bytes """
+    file.seek(0, 2)
+    return(bytes.fromhex('{:08X}'.format(file.tell() + offset)))
 
+def getFileAlignment(file, alignment):
+    """ Return file alignment, 0 = aligned, non zero = misaligned """
+    size = int.from_bytes(get_size(file), byteorder='big', signed=False)
+
+    if size % alignment != 0:
+        pad_number = alignment - (size % alignment)
+    else:
+        pad_number = 0
+    return pad_number
+
+def alignFile(file, alignment):
+    """ Align a file to be the specified size """
+    file.write(bytes.fromhex("00" * getFileAlignment(file, alignment)))
+    
+
+def geckoParser(geckoText, parseAll):
     geckoMagic = '00D0C0DE00D0C0DE'
     geckoTerminate = 'F000000000000000'
     with open(geckoText, 'rb') as gecko:
@@ -82,23 +101,10 @@ def build(gctFile, dolFile, size, isText):
 
         final.write(dol.read())
 
-        '''Initialize the sme-code loader'''
+        '''Initialize the geckoloader'''
         
         tmp.write(code.read())
-        code.seek(0, 0)
-        tmp.seek(0, 0)
-
-        '''Search for main entry of loader'''
-
-        entryIndex = 0
-        sample = tmp.read(4)
-        while sample:
-            if sample == ENTRY:
-                tmp.seek(-4, 1)
-                tmp.write(bytes.fromhex('7C0802A6'))
-                break
-            entryIndex += 4
-            sample = tmp.read(4)
+        code.seek(0)
         tmp.seek(0)
 
         '''Get BSS section for insert'''
@@ -107,7 +113,7 @@ def build(gctFile, dolFile, size, isText):
         BSS = int(final.read(4).hex(), 16)
         BSS_length = int(final.read(4).hex(), 16)
         dump_address = '{:08X}'.format(int(BSS + (BSS_length / 2)))[:-2] + '00'
-        _START = bytes.fromhex('{:08X}'.format(int(dump_address, 16) + entryIndex))
+        _START = bytes.fromhex('{:08X}'.format(int(dump_address, 16)))
         cLoader = bytes.fromhex(dump_address)
 
         '''Get address split for later'''
@@ -125,8 +131,6 @@ def build(gctFile, dolFile, size, isText):
         sized = False
         fsized = False
 
-        gUpperAddr = bytes.fromhex(upperAddr)
-
         if isText == True:
             geckoCheats = geckoParser(gctFile, args.txtcodes)
         
@@ -136,9 +140,11 @@ def build(gctFile, dolFile, size, isText):
                 if sample == HEAP: #Found keyword "HEAP". Goes with the resize of the heap
                     if not heaped:
                         tmp.seek(-4, 1)
-                        gInfo = tmp.tell()
-                        if int(lowerAddr, 16) + gInfo > int('7FFF', 16): #Absolute addressing
-                            gUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16) + 1))
+                        gpModInfoOffset = tmp.tell()
+                        if int(lowerAddr, 16) + gpModInfoOffset > int('7FFF', 16): #Absolute addressing
+                            gpModUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16) + 1))
+                        else:
+                            gpModUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16)))
                         if size == '0' or size == '':
                             if isText == False:
                                 size = get_size(gecko).hex().upper()
@@ -166,18 +172,31 @@ def build(gctFile, dolFile, size, isText):
             except Exception as err:
                 print(err)
                 sys.exit(1)
+        
+        gpDiscOffset = int.from_bytes(get_size(tmp, -4), byteorder="big", signed=True)
+
+        if int(lowerAddr, 16) + gpDiscOffset > int('7FFF', 16): #Absolute addressing
+            gpDiscUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16) + 1))
+        else:
+            gpDiscUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16)))
 
         '''Patch all load/store offsets to data'''
 
         tmp.seek(0)
         sample = tmp.read(2)
         while sample:
-            if sample == GH:
+            if sample == DH:
                 tmp.seek(-2, 1)
-                tmp.write(gUpperAddr)
+                tmp.write(gpDiscUpperAddr)
+            elif sample == DL:
+                tmp.seek(-2, 1)
+                tmp.write(bytes.fromhex('{:04X}'.format(int(lowerAddr, 16) + gpDiscOffset)))
+            elif sample == GH:
+                tmp.seek(-2, 1)
+                tmp.write(gpModUpperAddr)
             elif sample == GL:
                 tmp.seek(-2, 1)
-                tmp.write(bytes.fromhex('{:04X}'.format(int(lowerAddr, 16) + gInfo)))
+                tmp.write(bytes.fromhex('{:04X}'.format(int(lowerAddr, 16) + gpModInfoOffset)))
             elif sample == IH:
                 tmp.seek(-2, 1)
                 tmp.write(_init[0])
@@ -191,7 +210,7 @@ def build(gctFile, dolFile, size, isText):
         gecko.seek(0)
         
         dol_handler_offset = get_size(final)
-        final.write(handler.read())
+        final.write(handler.read() + bytes.fromhex('00' * getFileAlignment(handler, 0x100)))
         time.sleep(0.01)
         dol_sme_offset = get_size(final)
         
@@ -202,6 +221,7 @@ def build(gctFile, dolFile, size, isText):
             final.write(gecko.read())
         else:
             final.write(geckoCheats[0])
+        final.write(bytes.fromhex('00' * getFileAlignment(final, 0x100)))
         final.seek(0, 0)
         
         status = False
@@ -229,20 +249,16 @@ def build(gctFile, dolFile, size, isText):
                 final.write(_START)
 
                 '''Get size of GeckoLoader + gecko codes, and the codehandler'''
-                handler_size = get_size(handler)
-
+                handler_size = int.from_bytes(dol_sme_offset, byteorder="big", signed=False) - int.from_bytes(dol_handler_offset, byteorder="big", signed=False)
+                sme_code_size = int.from_bytes(get_size(final), byteorder="big", signed=False) - int.from_bytes(dol_sme_offset, byteorder="big", signed=False)
+                
                 tmp.seek(0, 2)
                 gecko.seek(0, 2)
 
-                if isText == True:
-                    sme_code_size = get_size(tmp, int(geckoCheats[1], 16))
-                else:
-                    sme_code_size = get_size(tmp, gecko.tell())
-
                 '''Write size of each section into DOL file header'''
                 final.seek(int('90', 16) + offset)
-                final.write(handler_size)
-                final.write(sme_code_size)
+                final.write(bytes.fromhex('{:08X}'.format(handler_size)))
+                final.write(bytes.fromhex('{:08X}'.format(sme_code_size)))
                 break
             else:
                 i += 1
@@ -290,11 +306,6 @@ def build(gctFile, dolFile, size, isText):
             for bit in info:
                 print(bit)
         return
-
-def get_size(file, offset=0):
-    """ Return a file's size in bytes """
-    file.seek(0, 2)
-    return(bytes.fromhex('{:08X}'.format(file.tell() + offset)))
     
 
 if __name__ == "__main__":
@@ -341,18 +352,16 @@ if __name__ == "__main__":
         isText = True
     else:
         parser.error('Neither a gct or gecko text file was passed\n')
-    
-    time1 = time.time()
 
     HEAP = bytes.fromhex('48454150')
     LOADERSIZE = bytes.fromhex('4C53495A')
     FULLSIZE = bytes.fromhex('4653495A')
-    ENTRY = bytes.fromhex('454E5452')
+    DH = bytes.fromhex('4448')
+    DL = bytes.fromhex('444C')
     GH = bytes.fromhex('4748')
     GL = bytes.fromhex('474C')
     IH = bytes.fromhex('4948')
     IL = bytes.fromhex('494C')
-    MODFIELD = [bytes.fromhex('BBBBBBBB'), bytes.fromhex('CCCCCCCC'), bytes.fromhex('DDDDDDDD'), bytes.fromhex('EEEEEEEE')]
 
     try:
         if not os.path.isdir('BUILD'):
@@ -363,6 +372,8 @@ if __name__ == "__main__":
             
         if not os.path.isfile(gctFile):
             parser.error(gctFile + ' Does not exist')
+
+        time1 = time.time()
             
         build(gctFile, dolFile, size, isText)
         
