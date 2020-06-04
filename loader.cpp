@@ -43,24 +43,26 @@ struct Info {
 };
 
 struct DiscInfo {
-    const u8 mDiscID;
-    const u16 mGameCode;
-    const u8 mRegionCode;
-    const u16 mMakerCode;
-    const u8 mDiscNumber;
-    const u8 mDiscVersion;
-    const u8 mAudioStreaming;
-    const u8 mStreamBufferSize;
-    const u8 _00[12];
-    const u32 mWiiMagic;
-    const u32 mGCNMagic;
-    const u32 _01[2];
-    u32 mRAMSize;
-    const u32 _02[2];
-    u32* mHeapPointer;
-    u32 mHeapMirror;
-    u32 mFstSize;
-    u32 mData[0x30D0 / 4];
+    const u8 mDiscID; //0x0000
+    const u16 mGameCode; //0x0001
+    const u8 mRegionCode; //0x0003
+    const u16 mMakerCode; //0x0004
+    const u8 mDiscNumber; //0x0006
+    const u8 mDiscVersion; //0x0007
+    const u8 mAudioStreaming; //0x0008
+    const u8 mStreamBufferSize; //0x0009
+    const u8 _00[12]; //0x000A
+    const u32 mWiiMagic; //0x0018
+    const u32 mGCNMagic; //0x001C
+    const u32 _01[2]; //0x0020
+    u32 mRAMSize; //0x0028
+    const u32 _02[2]; //0x002C
+    u32* mOSArenaHi; //0x0034
+    u32* mFstPointer; //0x0038
+    u32 mFstSize; //0x003C
+    u32 _03[0xB4 / 4]; //0x0040
+    u32* mTranslation; //0x00F4
+    u32 _04[0x3018 / 4];
     u32 mWiiHeap;
 };
 
@@ -157,12 +159,22 @@ static inline void hookFunction(u32* start, u32 hookInstruction, u32 hookTo, boo
 the game is for, to make space for our codes*/
 static inline void setHeap(u32 alloc)
 {
-    if (gpDiscResources->mWiiMagic) {
-        gpDiscResources->mHeapPointer = (u32*)((u32)gpDiscResources->mWiiHeap - alloc);
-        gpDiscResources->mWiiHeap = (u32)gpDiscResources->mHeapPointer;
+    if (gpDiscResources->mTranslation < gpDiscResources->mOSArenaHi) {
+        if (gpDiscResources->mWiiMagic) {
+            gpDiscResources->mTranslation = (u32*)((u32)gpDiscResources->mTranslation - alloc);
+            gpDiscResources->mWiiHeap = (u32)gpDiscResources->mTranslation;
+        } else {
+            gpDiscResources->mTranslation = (u32*)((u32)gpDiscResources->mTranslation - alloc);
+        }
     } else {
-        gpDiscResources->mHeapPointer = (u32*)((u32)gpDiscResources->mHeapPointer - alloc);
+        if (gpDiscResources->mWiiMagic) {
+            gpDiscResources->mOSArenaHi = (u32*)((u32)gpDiscResources->mWiiHeap - alloc);
+            gpDiscResources->mWiiHeap = (u32)gpDiscResources->mOSArenaHi;
+        } else {
+            gpDiscResources->mOSArenaHi = (u32*)((u32)gpDiscResources->mOSArenaHi - alloc);
+        }
     }
+    
 }
 
 static inline void memCopy(u32* to, u32* from, s32 size)
@@ -189,11 +201,11 @@ static inline bool initMods(DiscInfo* gpDiscResources)
 
     /*Change codelist pointer to the new address in the allocation*/
     CodeList* codelistPointer = (CodeList*)((u32)&gpModInfo + sizeof(gpModInfo) + 0xFC);
-    codelistPointer->mUpperBase = (((u32)gpDiscResources->mHeapPointer + gpModInfo.handlerSize) >> 16) & 0xFFFF;
-    codelistPointer->mLowerOffset = ((u32)gpDiscResources->mHeapPointer + gpModInfo.handlerSize) & 0xFFFF;
+    codelistPointer->mUpperBase = (((u32)gpDiscResources->mOSArenaHi + gpModInfo.handlerSize) >> 16) & 0xFFFF;
+    codelistPointer->mLowerOffset = ((u32)gpDiscResources->mOSArenaHi + gpModInfo.handlerSize) & 0xFFFF;
 
     /*Copy codelist to the new allocation*/
-    memCopy(gpDiscResources->mHeapPointer, (u32*)((u32)&gpModInfo + sizeof(gpModInfo) + 4), (gpModInfo.handlerSize + gpModInfo.codeSize) >> 2);
+    memCopy(gpDiscResources->mOSArenaHi, (u32*)((u32)&gpModInfo + sizeof(gpModInfo) + 4), (gpModInfo.handlerSize + gpModInfo.codeSize) >> 2);
 
     /*Update the cache, so that the instructions fully update*/
     flushAddr(&codelistPointer->mBaseASM);
@@ -203,19 +215,19 @@ static inline bool initMods(DiscInfo* gpDiscResources)
         if (functionAddr == nullptr)
             return false;
 
-        hookFunction(functionAddr, 0x4E800020, (u32)gpDiscResources->mHeapPointer + 0xA8, false);
+        hookFunction(functionAddr, 0x4E800020, (u32)gpDiscResources->mOSArenaHi + 0xA8, false);
     } else {
-        directBranchEx((void*)gpModInfo.codehandlerHook, (void*)((u32)gpDiscResources->mHeapPointer + 0xA8), false);
+        directBranchEx((void*)gpModInfo.codehandlerHook, (void*)((u32)gpDiscResources->mOSArenaHi + 0xA8), false);
     }
 
-    flushCacheRange((u8*)gpDiscResources->mHeapPointer, gpModInfo.handlerSize + gpModInfo.codeSize);
+    flushCacheRange((u8*)gpDiscResources->mOSArenaHi, gpModInfo.handlerSize + gpModInfo.codeSize);
     return true;
 }
 
 int main()
 {
     if ((gpDiscResources->mWiiMagic || gpDiscResources->mGCNMagic) && initMods(gpDiscResources) == true)
-        call((void*)((u32)(gpDiscResources->mHeapPointer) + 0xA8))(); /*Call the codehandler if successful*/
+        call((void*)((u32)(gpDiscResources->mOSArenaHi) + 0xA8))(); /*Call the codehandler if successful*/
 
     call(0xDEADBEEF)(); /*Call the game start*/
 }
