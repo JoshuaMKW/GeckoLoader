@@ -70,6 +70,17 @@ class DolFile(object):
                 return offset, address, size 
         
         raise RuntimeError("Unmapped address: {0}".format(hex(gc_addr)))
+
+    def seekSafeAddress(self, gc_addr, buffer=0):
+        for offset, address, size in self._text:
+            if address > (gc_addr + buffer) or address+size < gc_addr:
+                continue
+            gc_addr = address + size
+        for offset, address, size in self._data:
+            if address > (gc_addr + buffer) or address+size < gc_addr:
+                continue
+            gc_addr = address + size
+        return gc_addr
     
     # Unsupported: Reading an entire dol file 
     # Assumption: A read should not go beyond the current section 
@@ -137,6 +148,9 @@ class DolFile(object):
         self._rawdata.seek(0, 2)
         self._rawdata.write(bytes.fromhex("00" * self.getalignment(alignment)))
         self._rawdata.seek(oldpos)
+
+    def insertBranch(self, to, _from, lk=0):
+        self.write(((to - _from) & 0x3FFFFFFF | 0x48000000 | lk).to_bytes(4, byteorder='big', signed=False))
 
         
 
