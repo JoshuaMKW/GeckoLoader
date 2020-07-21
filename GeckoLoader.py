@@ -5,6 +5,7 @@ import os
 import time
 import re
 import shutil
+import glob
 import dolreader
 
 from io import BytesIO, RawIOBase
@@ -87,7 +88,7 @@ class GCT(object):
 
 class CodeHandler(object):
 
-    def __init__(self, f, gctFile, isText):
+    def __init__(self, f):
         self.codehandler = BytesIO(f.read())
 
         '''Get codelist pointer'''
@@ -102,25 +103,16 @@ class CodeHandler(object):
         self.startaddress = 0x800018A8
         self.allocation = None
         self.hookaddress = None
-        self.gcnhook = GCNVIHOOK
-        self.wiihook = WIIVIHOOK
+        self.geckocodes = ''
 
         if self.handlerlength < 0x900:
             self.type = "Mini"
         else:
             self.type = "Full"
 
-        if isText == True:
-            self.geckocodes = self.geckoParser(gctFile, args.txtcodes)
-        else:
-            with open(r'{}'.format(gctFile), 'rb') as gct:
-                self.geckocodes = GCT(gct)
-
         f.seek(0)
 
-    def geckoParser(self, geckoText, parseAll):
-        geckoMagic = '00D0C0DE00D0C0DE'
-        geckoTerminate = 'F000000000000000'
+    def geckoParser(self, geckoText, parseAll=False):
         with open(r'{}'.format(geckoText), 'rb') as gecko:
             result = chardet.detect(gecko.read())
             encodeType = result['encoding']
@@ -140,15 +132,10 @@ class CodeHandler(object):
                 geckoLine = ''.join(geckoLine)
                 geckoLine = re.sub(r'\s+', '', geckoLine)
                 geckoCodes = geckoCodes + geckoLine.replace('*', '')
-                
-            with open(os.path.join('tmp', 'gct.bin'), 'wb+') as code:
-                code.write(bytes.fromhex(geckoMagic + geckoCodes + geckoTerminate))
-                code.seek(0)
-                gct = GCT(code)
 
-        return gct
+        return geckoCodes
 
-def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int, istext=False):
+def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
     with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(resource_path(os.path.join('bin', r'{}'.format(codehandlerFile))), 'rb') as handler, open(os.path.join('tmp', 'tmp.bin'), 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
 
         if get_size(dol) < 0x100:
@@ -166,14 +153,41 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int, ist
 
         '''Initialize our codehandler + codes'''
 
-        codehandler = CodeHandler(handler, gctFile, isText)
+        codehandler = CodeHandler(handler)
         codehandler.allocation = allocation
         codehandler.hookaddress = codehook
 
-        skipCodeHandler = False
+        if '.' in gctFile:
+            if os.path.splitext(gctFile)[1].lower() == '.txt':
+                with open(os.path.join('tmp', 'gct.bin'), 'wb+') as temp:
+                    temp.write(bytes.fromhex('00D0C0DE'*2 + codehandler.geckoParser(gctFile, args.txtcodes) + 'F000000000000000'))
+                    temp.seek(0)
+                    codehandler.geckocodes = GCT(temp)    
+            elif os.path.splitext(gctFile)[1].lower() == '.gct':
+                with open(r'{}'.format(gctFile), 'rb') as gct:
+                    codehandler.geckocodes = GCT(gct)
+            else:
+                parser.error('No valid gecko code file found')
+        else:
+            with open(os.path.join('tmp', 'gct.bin'), 'wb+') as temp:
+                temp.write(bytes.fromhex('00D0C0DE'*2))
+                for file in os.listdir(gctFile):
+                    if os.path.isfile(os.path.join(gctFile, file)):
+                        if os.path.splitext(file)[1].lower() == '.txt':
+                            temp.write(bytes.fromhex(codehandler.geckoParser(os.path.join(gctFile, file), args.txtcodes)))  
+                        elif os.path.splitext(file)[1].lower() == '.gct':
+                            with open(os.path.join(gctFile, file), 'rb') as gct:
+                                temp.write(gct.read()[8:-8])
+                        else:
+                            print(TYELLOW + '  :: WARNING: {} is not a .txt or .gct file'.format(file) + TRESET)
+                temp.write(bytes.fromhex('F000000000000000'))
+                temp.seek(0)
+                print(temp.read())
+                temp.seek(0)
+                codehandler.geckocodes = GCT(temp)
 
         if args.optimize == True:
-            skipCodeHandler = optimizeCodelist(codehandler, dolfile)
+            optimizeCodelist(codehandler, dolfile)
 
         '''Get entrypoint (or BSS midpoint) for insert'''
 
@@ -191,13 +205,10 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int, ist
 
         '''Is insertion legacy?'''
 
-        if skipCodeHandler == True:
+        if codehandler.geckocodes.size <= 0x10:
             dolfile.save(final)
-            if args.verbose >= 2:
-                print(TGREENLIT + '\n  :: All codes have been successfully pre patched')
-                print('  :: Pre patched 0x{:X} lines of gecko code'.format(codehandler.geckocodes.size) + TRESET)
-            elif args.verbose >= 1:
-                print(TGREENLIT + '\n  :: All codes have been successfully pre patched!' + TRESET)
+            if args.verbose >= 1:
+                print(TGREENLIT + '\n  :: All codes have been successfully pre patched' + TRESET)
             return
 
         if args.movecodes == 'LEGACY':
@@ -295,7 +306,6 @@ def optimizeCodelist(codehandler, dolfile):
     codetype = b'DUMMY'
     codelist = b''
     skipcodes = 0
-    patchedAll = True
     while codetype:
         codetype = codehandler.geckocodes.codelist.read(4)
         info = codehandler.geckocodes.codelist.read(4)
@@ -383,18 +393,15 @@ def optimizeCodelist(codehandler, dolfile):
                     continue
 
             if codetype.hex().startswith('2') or codetype.hex().startswith('3'):
-                patchedAll = False
                 skipcodes += 1
 
             elif codetype.startswith(b'\xE0'):
-                patchedAll = False
                 skipcodes -= 1
 
             elif codetype.startswith(b'\xF0'):
-                codelist += b'\xF0\x00\x00\x00'
+                codelist += b'\xF0\x00\x00\x00\x00\x00\x00\x00'
                 break
 
-            patchedAll = False
             codehandler.geckocodes.codelist.seek(-8, 1)
             length = determineCodeLength(codetype, info)
             while length > 0:
@@ -402,7 +409,6 @@ def optimizeCodelist(codehandler, dolfile):
                 length -= 1
 
         except RuntimeError:
-            patchedAll = False
             codehandler.geckocodes.codelist.seek(-8, 1)
             length = determineCodeLength(codetype, info)
             while length > 0:
@@ -411,8 +417,6 @@ def optimizeCodelist(codehandler, dolfile):
 
     codehandler.geckocodes.codelist = BytesIO(codelist)
     codehandler.geckocodes.size = get_size(codehandler.geckocodes.codelist)
-
-    return patchedAll
 
 def patchGeckoLoader(fLoader, codehandler: CodeHandler, tmp, dolfile: dolreader.DolFile, entrypoint: str):
     tmp.write(fLoader.read())
@@ -599,26 +603,13 @@ def insertCodeHook(dolfile: dolreader.DolFile, codehandler: CodeHandler, address
 def sortArgFiles(fileA, fileB):
     if os.path.splitext(fileA)[1].lower() == '.dol':
         dolFile = fileA
+        gctFile = fileB
     elif os.path.splitext(fileB)[1].lower() == '.dol':
         dolFile = fileB
+        gctFile = fileA
     else:
         parser.error('No dol file was passed\n')
-
-    if os.path.splitext(fileA)[1].lower() == '.gct':
-        gctFile = fileA
-        isText = False
-    elif os.path.splitext(fileA)[1].lower() == '.txt':
-        gctFile = fileA
-        isText = True
-    elif os.path.splitext(fileB)[1].lower() == '.gct':
-        gctFile = fileB
-        isText = False
-    elif os.path.splitext(fileB)[1].lower() == '.txt':
-        gctFile = fileB
-        isText = True
-    else:
-        parser.error('Neither a gct or gecko text file was passed\n')
-    return dolFile, gctFile, isText   
+    return dolFile, gctFile
 
 if __name__ == "__main__":
     if not os.path.isdir('tmp'):
@@ -703,21 +694,21 @@ if __name__ == "__main__":
     else:
         codehandlerFile = 'codehandler.bin'
 
-    dolFile, gctFile, isText = sortArgFiles(args.file, args.file2)
+    dolFile, gctFile = sortArgFiles(args.file, args.file2)
 
     try:
         if not os.path.isdir('BUILD'):
             os.mkdir('BUILD')
             
         if not os.path.isfile(dolFile):
-            parser.error(dolFile + ' Does not exist')
+            parser.error('File "' + dolFile + '" does not exist')
             
-        if not os.path.isfile(gctFile):
-            parser.error(gctFile + ' Does not exist')
+        if not os.path.exists(gctFile):
+            parser.error('File/folder "' + gctFile + '" does not exist')
 
         time1 = time.time()
             
-        build(gctFile, dolFile, codehandlerFile, _allocation, _codehook, isText)
+        build(gctFile, dolFile, codehandlerFile, _allocation, _codehook)
         
         shutil.rmtree('tmp')
         if not args.quiet:
