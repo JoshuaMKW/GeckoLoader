@@ -37,12 +37,26 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-def resource_path(relative_path):
+HEAP = b'HEAP'
+LOADERSIZE = b'LSIZ'
+HANDLERSIZE = b'HSIZ'
+CODESIZE = b'CSIZ'
+CODEHOOK = b'HOOK'
+DH = b'DH'
+DL = b'DL'
+GH = b'GH'
+GL = b'GL'
+IH = b'IH'
+IL = b'IL'
+WIIVIHOOK = b'\x7C\xE3\x3B\x78\x38\x87\x00\x34\x38\xA7\x00\x38\x38\xC7\x00\x4C'
+GCNVIHOOK = b'\x7C\x03\x00\x34\x38\x83\x00\x20\x54\x85\x08\x3C\x7C\x7F\x2A\x14\xA0\x03\x00\x00\x7C\x7D\x2A\x14\x20\xA4\x00\x3F\xB0\x03\x00\x00'
+
+def resource_path(relative_path: str):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
-def getAlignment(number, align):
+def getAlignment(number, align: int):
     if number % align != 0:
         return align - (number % align)
     else:
@@ -51,25 +65,24 @@ def getAlignment(number, align):
 def get_size(file, offset=0):
     """ Return a file's size in bytes """
     file.seek(0, 2)
-    return(bytes.fromhex('{:08X}'.format(file.tell() + offset)))
+    return file.tell() + offset
 
-def getFileAlignment(file, alignment):
+def getFileAlignment(file, alignment: int):
     """ Return file alignment, 0 = aligned, non zero = misaligned """
-    size = int.from_bytes(get_size(file), byteorder='big', signed=False)
-
+    size = get_size(file)
     return getAlignment(size, alignment)
 
-def alignFile(file, alignment):
+def alignFile(file, alignment: int, fillchar='00'):
     """ Align a file to be the specified size """
-    file.write(bytes.fromhex("00" * getFileAlignment(file, alignment)))
+    file.write(bytes.fromhex(fillchar * getFileAlignment(file, alignment)))
 
 class GCT(object):
 
     def __init__(self, f):
         self.codelist = BytesIO(f.read())
-        self.rawlinecount = int.from_bytes(get_size(f), byteorder='big', signed=True) >> 3
+        self.rawlinecount = get_size(f) >> 3
         self.linecount = self.rawlinecount - 2
-        self.size = int.from_bytes(get_size(f), byteorder='big', signed=True)
+        self.size = get_size(f)
         f.seek(0)
 
 class CodeHandler(object):
@@ -78,15 +91,19 @@ class CodeHandler(object):
         self.codehandler = BytesIO(f.read())
 
         '''Get codelist pointer'''
-        f.seek(0xFA, 0)
+        f.seek(0xFA)
         codelistUpper = f.read(2).hex()
-        f.seek(0xFE, 0)
+        f.seek(0xFE)
         codelistLower = f.read(2).hex()
 
         self.codelistpointer = int(codelistUpper[2:] + codelistLower[2:], 16)
-        self.handlerlength = int.from_bytes(get_size(f), byteorder='big', signed=True)
+        self.handlerlength = get_size(f)
         self.initaddress = 0x80001800
         self.startaddress = 0x800018A8
+        self.allocation = None
+        self.hookaddress = None
+        self.gcnhook = GCNVIHOOK
+        self.wiihook = WIIVIHOOK
 
         if self.handlerlength < 0x900:
             self.type = "Mini"
@@ -131,11 +148,10 @@ class CodeHandler(object):
 
         return gct
 
-def build(gctFile, dolFile, codehandlerFile, size):
-    global isText, _allocation, _codehook
+def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int, istext=False):
     with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(resource_path(os.path.join('bin', r'{}'.format(codehandlerFile))), 'rb') as handler, open(os.path.join('tmp', 'tmp.bin'), 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
 
-        if int(get_size(dol).hex(), 16) < 0x100:
+        if get_size(dol) < 0x100:
             shutil.rmtree('tmp')
             parser.error('DOL header is corrupted. Please provide a clean file')
         
@@ -151,9 +167,13 @@ def build(gctFile, dolFile, codehandlerFile, size):
         '''Initialize our codehandler + codes'''
 
         codehandler = CodeHandler(handler, gctFile, isText)
+        codehandler.allocation = allocation
+        codehandler.hookaddress = codehook
+
+        skipCodeHandler = False
 
         if args.optimize == True:
-            optimizeCodelist(codehandler, dolfile)
+            skipCodeHandler = optimizeCodelist(codehandler, dolfile)
 
         '''Get entrypoint (or BSS midpoint) for insert'''
 
@@ -166,13 +186,22 @@ def build(gctFile, dolFile, codehandlerFile, size):
                 pass
         else:
             dump_address = '{:08X}'.format(dolfile._bssoffset + (dolfile._bsssize >> 1))[:-2] + '00'
-            dump_address = '{:08X}'.format(dolfile.seekSafeAddress(int(dump_address, 16), int.from_bytes(get_size(code), byteorder='big', signed=False) + codehandler.handlerlength + codehandler.geckocodes.size))
+            dump_address = '{:08X}'.format(dolfile.seekSafeAddress(int(dump_address, 16), get_size(code) + codehandler.handlerlength + codehandler.geckocodes.size))
             code.seek(0)
 
         '''Is insertion legacy?'''
 
+        if skipCodeHandler == True:
+            dolfile.save(final)
+            if args.verbose >= 2:
+                print(TGREENLIT + '\n  :: All codes have been successfully pre patched')
+                print('  :: Pre patched 0x{:X} lines of gecko code'.format(codehandler.geckocodes.size) + TRESET)
+            elif args.verbose >= 1:
+                print(TGREENLIT + '\n  :: All codes have been successfully pre patched!' + TRESET)
+            return
+
         if args.movecodes == 'LEGACY':
-            _allocation = '{:X}'.format(0x80003000 - (codehandler.initaddress + codehandler.handlerlength))
+            codehandler.allocation = 0x80003000 - (codehandler.initaddress + codehandler.handlerlength)
             patchLegacyHandler(codehandler, tmp, dolfile)
             legacy = True
         elif args.movecodes == 'ARENA':
@@ -183,40 +212,42 @@ def build(gctFile, dolFile, codehandlerFile, size):
                 patchGeckoLoader(code, codehandler, tmp, dolfile, dump_address)
                 legacy = False
             else:
-                _allocation = '{:X}'.format(0x80003000 - (codehandler.initaddress + codehandler.handlerlength))
+                codehandler.allocation = 0x80003000 - (codehandler.initaddress + codehandler.handlerlength)
                 patchLegacyHandler(codehandler, tmp, dolfile)
                 legacy = True
 
         dolfile.save(final)
         
-        if int(_allocation, 16) < codehandler.geckocodes.size:
+        if codehandler.allocation < codehandler.geckocodes.size:
             print(TYELLOW + '\n  :: WARNING: Allocated codespace was smaller than the given codelist. The game will crash if run' + TRESET)
 
         if args.quiet:
             return
 
-        if int(_allocation, 16) > int('70000', 16):
-            print(TYELLOW + '\n  :: WARNING: Allocations beyond 0x70000 will crash certain games. You allocated 0x{}'.format(_allocation.upper().lstrip('0'))  + TRESET)
+        if codehandler.allocation > 0x70000:
+            print(TYELLOW + '\n  :: WARNING: Allocations beyond 0x70000 will crash certain games. You allocated 0x{:X}'.format(codehandler.allocation) + TRESET)
             
-        elif int(_allocation, 16) > int('40000', 16):
-            print(TYELLOWLIT + '\n  :: HINT: Recommended allocation limit is 0x40000. You allocated 0x{}'.format(_allocation.upper().lstrip('0'))  + TRESET)
+        elif codehandler.allocation > 0x40000:
+            print(TYELLOWLIT + '\n  :: HINT: Recommended allocation limit is 0x40000. You allocated 0x{:X}'.format(codehandler.allocation) + TRESET)
         
         if args.verbose >= 2:
             print('')
             if legacy == False:
                 info = [TGREENLIT + '  :: GeckoLoader set at address 0x{}, start of game modified to address 0x{}'.format(dump_address.upper().lstrip('0'), dump_address.upper().lstrip('0')),
                     '  :: Game function "__init_registers" located at address 0x{:X}'.format(dolfile._init),
-                    '  :: Codehandler hooked at 0x{}'.format(_codehook.upper().lstrip('0')),
-                    '  :: Code allocation is 0x{}; codelist size is 0x{:X}'.format(_allocation.upper().lstrip('0'), codehandler.geckocodes.size),
+                    '  :: Code allocation is 0x{:X}; codelist size is 0x{:X}'.format(codehandler.allocation, codehandler.geckocodes.size),
                     '  :: Codehandler is of type "{}"'.format(codehandler.type),
                     '  :: Of the 7 text sections in this DOL file, {} were already used'.format(len(dolfile._text)) + TRESET]
+                if codehandler.hookaddress is not None:
+                    info.insert(2, '  :: Codehandler hooked at 0x{:08X}'.format(codehandler.hookaddress))
+            
             else:
                 info = [TGREENLIT + '  :: Game function "__init_registers" located at address 0x{:X}'.format(dolfile._init),
-                        '  :: Codehandler hooked at 0x{}'.format(_codehook.upper().lstrip('0')),
-                        '  :: Code allocation is 0x{}; codelist size is 0x{:X}'.format(_allocation.upper().lstrip('0'), codehandler.geckocodes.size),
+                        '  :: Code allocation is 0x{:X}; codelist size is 0x{:X}'.format(codehandler.allocation, codehandler.geckocodes.size),
                         '  :: Codehandler is of type "{}"'.format(codehandler.type),
                         '  :: Of the 7 text sections in this DOL file, {} were already used'.format(len(dolfile._text)) + TRESET]
-            
+                if codehandler.hookaddress is not None:
+                    info.insert(1, '  :: Codehandler hooked at 0x{:08X}'.format(codehandler.hookaddress))
             for bit in info:
                 print(bit)
         
@@ -225,10 +256,10 @@ def build(gctFile, dolFile, codehandlerFile, size):
             if legacy == False:
                 info = [TGREENLIT + '  :: GeckoLoader set at address 0x{}'.format(dump_address.upper()),
                         '  :: Codehandler is of type "{}"'.format(args.handler),
-                        '  :: Code allocation is 0x{} in hex; codelist size is 0x{:X}'.format(_allocation.upper().lstrip('0'), codehandler.geckocodes.size) + TRESET]
+                        '  :: Code allocation is 0x{} in hex; codelist size is 0x{:X}'.format(codehandler.allocation, codehandler.geckocodes.size) + TRESET]
             else:
                 info = [TGREENLIT + '  :: Codehandler is of type "{}"'.format(args.handler),
-                        '  :: Code allocation is 0x{} in hex; codelist size is 0x{:X}'.format(_allocation.upper().lstrip('0'), codehandler.geckocodes.size) + TRESET]
+                        '  :: Code allocation is 0x{} in hex; codelist size is 0x{:X}'.format(codehandler.allocation, codehandler.geckocodes.size) + TRESET]
 
             for bit in info:
                 print(bit)
@@ -264,6 +295,7 @@ def optimizeCodelist(codehandler, dolfile):
     codetype = b'DUMMY'
     codelist = b''
     skipcodes = 0
+    patchedAll = True
     while codetype:
         codetype = codehandler.geckocodes.codelist.read(4)
         info = codehandler.geckocodes.codelist.read(4)
@@ -351,15 +383,18 @@ def optimizeCodelist(codehandler, dolfile):
                     continue
 
             if codetype.hex().startswith('2') or codetype.hex().startswith('3'):
+                patchedAll = False
                 skipcodes += 1
 
             elif codetype.startswith(b'\xE0'):
+                patchedAll = False
                 skipcodes -= 1
 
             elif codetype.startswith(b'\xF0'):
                 codelist += b'\xF0\x00\x00\x00'
                 break
 
+            patchedAll = False
             codehandler.geckocodes.codelist.seek(-8, 1)
             length = determineCodeLength(codetype, info)
             while length > 0:
@@ -367,6 +402,7 @@ def optimizeCodelist(codehandler, dolfile):
                 length -= 1
 
         except RuntimeError:
+            patchedAll = False
             codehandler.geckocodes.codelist.seek(-8, 1)
             length = determineCodeLength(codetype, info)
             while length > 0:
@@ -374,13 +410,16 @@ def optimizeCodelist(codehandler, dolfile):
                 length -= 1
 
     codehandler.geckocodes.codelist = BytesIO(codelist)
-    codehandler.geckocodes.size = int.from_bytes(get_size(codehandler.geckocodes.codelist), byteorder='big', signed=True)
+    codehandler.geckocodes.size = get_size(codehandler.geckocodes.codelist)
 
-def patchGeckoLoader(fLoader, codehandler, tmp, dolfile, entrypoint):
+    return patchedAll
+
+def patchGeckoLoader(fLoader, codehandler: CodeHandler, tmp, dolfile: dolreader.DolFile, entrypoint: str):
     tmp.write(fLoader.read())
     geckoloader_offset = dolfile.getsize()
     figureLoaderData(tmp, fLoader, codehandler, dolfile, entrypoint,
-                     [bytes.fromhex('{:X}'.format(dolfile._init)[:4]), bytes.fromhex('{:X}'.format(dolfile._init)[4:])])
+                     [((dolfile._init >> 16) & 0xFFFF).to_bytes(2, byteorder='big', signed=False),
+                      (dolfile._init & 0xFFFF).to_bytes(2, byteorder='big', signed=False)])
     tmp.seek(0)
     dolfile._rawdata.seek(0, 2)
     dolfile._rawdata.write(tmp.read())
@@ -391,7 +430,7 @@ def patchGeckoLoader(fLoader, codehandler, tmp, dolfile, entrypoint):
     '''Write game entry in DOL file header'''
     dolfile.setInitPoint(int(entrypoint, 16))
 
-def patchLegacyHandler(codehandler, tmp, dolfile):
+def patchLegacyHandler(codehandler: CodeHandler, tmp, dolfile: dolreader.DolFile):
     handler_offset = dolfile.getsize()
 
     dolfile._rawdata.seek(0, 2)
@@ -401,10 +440,10 @@ def patchLegacyHandler(codehandler, tmp, dolfile):
     dolfile._rawdata.write(codehandler.codehandler.read() + codehandler.geckocodes.codelist.read())
     dolfile.align(256)
 
-    assertTextSections(dolfile, 6, [[0x80001800, handler_offset]])
+    assertTextSections(dolfile, 6, [[codehandler.initaddress, handler_offset]])
     determineCodeHook(dolfile, codehandler)
 
-def assertTextSections(dolfile, textsections, sections_list):
+def assertTextSections(dolfile: dolreader.DolFile, textsections: int, sections_list: list):
     offset = len(dolfile._text) << 2
     if len(sections_list) + len(dolfile._text) <= 7:
         '''Write offset to each section in DOL file header'''
@@ -434,28 +473,27 @@ def assertTextSections(dolfile, textsections, sections_list):
         shutil.rmtree('tmp')
         parser.error(TREDLIT + 'Not enough text sections to patch the DOL file! Potentially due to previous mods?\n' + TRESET)
 
-def figureLoaderData(tmp, fLoader, codehandler, dolfile, entrypoint, initpoint):
-    global _allocation, _codehook
-
+def figureLoaderData(tmp, fLoader, codehandler: CodeHandler, dolfile: dolreader.DolFile, entrypoint: str, initpoint: list):
     upperAddr, lowerAddr = entrypoint[:int(len(entrypoint)/2)], entrypoint[int(len(entrypoint)/2):]
     
     tmp.seek(0)
     sample = tmp.read(4)
+
     while sample:
         if sample == HEAP: #Found keyword "HEAP". Goes with the resize of the heap
             tmp.seek(-4, 1)
             gpModInfoOffset = tmp.tell()
             if int(lowerAddr, 16) + gpModInfoOffset > 0x7FFF: #Absolute addressing
-                gpModUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16) + 1))
+                gpModUpperAddr = (int(upperAddr, 16) + 1).to_bytes(2, byteorder='big', signed=False)
             else:
-                gpModUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16)))
-            if _allocation == None:
-                _allocation = '{:08X}'.format((codehandler.handlerlength + codehandler.geckocodes.size + 7) & 0xFFFFFFF8)
-            tmp.write(bytes.fromhex(_allocation))
+                gpModUpperAddr = int(upperAddr, 16).to_bytes(2, byteorder='big', signed=False)
+            if codehandler.allocation == None:
+                codehandler.allocation = (codehandler.handlerlength + codehandler.geckocodes.size + 7) & 0xFFFFFFF8
+            tmp.write(codehandler.allocation.to_bytes(4, byteorder='big', signed=False))
                 
         elif sample == LOADERSIZE: #Found keyword "LSIZ". Goes with the size of the loader
             tmp.seek(-4, 1)
-            tmp.write(get_size(fLoader))
+            tmp.write(get_size(fLoader).to_bytes(4, byteorder='big', signed=False))
                 
         elif sample == HANDLERSIZE: #Found keyword "HSIZ". Goes with the size of the codehandler
             tmp.seek(-4, 1)
@@ -467,21 +505,21 @@ def figureLoaderData(tmp, fLoader, codehandler, dolfile, entrypoint, initpoint):
         
         elif sample == CODEHOOK:
             tmp.seek(-4, 1)
-            if _codehook == None:
+            if codehandler.hookaddress == None:
                 tmp.write(b'\x00\x00\x00\x00')
             else:
-                tmp.write(bytes.fromhex(_codehook))
+                tmp.write(codehandler.hookaddress.to_bytes(4, byteorder='big', signed=False))
         
         sample = tmp.read(4)
         
-    gpDiscOffset = int.from_bytes(get_size(tmp, -4), byteorder="big", signed=False)
+    gpDiscOffset = get_size(tmp, -4)
 
     if int(lowerAddr, 16) + gpDiscOffset > 0x7FFF: #Absolute addressing
-        gpDiscUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16) + 1))
+        gpDiscUpperAddr = (int(upperAddr, 16) + 1).to_bytes(2, byteorder='big', signed=False)
     else:
-        gpDiscUpperAddr = bytes.fromhex('{:04X}'.format(int(upperAddr, 16)))
+        gpDiscUpperAddr = int(upperAddr, 16).to_bytes(2, byteorder='big', signed=False)
 
-    fillLoaderData(tmp, initpoint, lowerAddr, [gpModUpperAddr, gpModInfoOffset], [gpDiscUpperAddr, gpDiscOffset])
+    fillLoaderData(tmp, initpoint, int(lowerAddr, 16), [gpModUpperAddr, gpModInfoOffset], [gpDiscUpperAddr, gpDiscOffset])
     
     tmp.seek(0, 2)
     codehandler.codehandler.seek(0)
@@ -489,7 +527,7 @@ def figureLoaderData(tmp, fLoader, codehandler, dolfile, entrypoint, initpoint):
 
     tmp.write(codehandler.codehandler.read() + codehandler.geckocodes.codelist.read())
 
-def fillLoaderData(tmp, _init, lowerAddr, gpModInfo, gpDiscInfo):
+def fillLoaderData(tmp, _init: list, lowerAddr: int, gpModInfo: list, gpDiscInfo: list):
     tmp.seek(0)
     sample = tmp.read(2)
     while sample:
@@ -498,23 +536,67 @@ def fillLoaderData(tmp, _init, lowerAddr, gpModInfo, gpDiscInfo):
             tmp.write(gpDiscInfo[0])
         elif sample == DL:
             tmp.seek(-2, 1)
-            tmp.write(bytes.fromhex('{:04X}'.format(int(lowerAddr, 16) + gpDiscInfo[1])))
+            tmp.write((lowerAddr + gpDiscInfo[1]).to_bytes(2, byteorder='big', signed=False))
         elif sample == GH:
             tmp.seek(-2, 1)
             tmp.write(gpModInfo[0])
         elif sample == GL:
             tmp.seek(-2, 1)
-            tmp.write(bytes.fromhex('{:04X}'.format(int(lowerAddr, 16) + gpModInfo[1])))
+            tmp.write((lowerAddr + gpModInfo[1]).to_bytes(2, byteorder='big', signed=False))
         elif sample == IH:
             tmp.seek(-2, 1)
             tmp.write(_init[0])
         elif sample == IL:
             tmp.seek(-2, 1)
             tmp.write(_init[1])
-        sample = tmp.read(2)
+        sample = tmp.read(2) 
+
+def determineCodeHook(dolfile: dolreader.DolFile, codehandler: CodeHandler):
+    if codehandler.hookaddress == None:
+        assertCodeHook(dolfile, codehandler, GCNVIHOOK, WIIVIHOOK)
+    else:
+        insertCodeHook(dolfile, codehandler, codehandler.hookaddress)
+
+def assertCodeHook(dolfile: dolreader.DolFile, codehandler: CodeHandler, gcnhook: bytes, wiihook: bytes):
+    for offset, address, size in dolfile._text:
+        dolfile.seek(address, 0)
+        sample = dolfile.read(size)
+
+        result = sample.find(gcnhook)
+        if result >= 0:
+            dolfile.seek(address, 0)
+            dolfile.seek(result, 1)
+        else:
+            result = sample.find(wiihook)
+            if result >= 0:
+                dolfile.seek(address, 0)
+                dolfile.seek(result, 1)
+            else:
+                continue
+
+        sample = dolfile.read(4)
+        while sample != b'\x4E\x80\x00\x20':
+            sample = dolfile.read(4)
+
+        dolfile.seek(-4, 1)
+        codehandler.hookaddress = dolfile.tell()
+
+        insertCodeHook(dolfile, codehandler, codehandler.hookaddress)
+        return
+
+    parser.error('Failed to find a hook address. Try using option --codehook to use your own address')
+
+def insertCodeHook(dolfile: dolreader.DolFile, codehandler: CodeHandler, address: int):
+    dolfile.seek(address)
+
+    if dolfile.read(4) != b'\x4E\x80\x00\x20':
+        parser.error("Codehandler hook given is not a blr")
+
+    dolfile.seek(-4, 1)
+    dolfile.insertBranch(codehandler.startaddress, address, lk=0)
+    
 
 def sortArgFiles(fileA, fileB):
-    global isText
     if os.path.splitext(fileA)[1].lower() == '.dol':
         dolFile = fileA
     elif os.path.splitext(fileB)[1].lower() == '.dol':
@@ -536,37 +618,9 @@ def sortArgFiles(fileA, fileB):
         isText = True
     else:
         parser.error('Neither a gct or gecko text file was passed\n')
-    return dolFile, gctFile    
-
-def determineCodeHook(dolfile, codehandler):
-    global GCNVIHOOK, WIIVIHOOK, _codehook
-    if _codehook == None:
-        assertCodeHook(dolfile, codehandler, GCNVIHOOK, WIIVIHOOK)
-    else:
-        insertCodeHook(dolfile, codehandler, int(_codehook, 16))
-
-def assertCodeHook(dolfile, codehandler, GCNVIHOOK, WIIVIHOOK):
-    for offset, address, size in dolfile._text:
-        dolfile.seek(address, 0)
-        sample = dolfile.read(size)
-        if sample.find(GCNVIHOOK) != -1 or sample.find(WIIVIHOOK):
-            sample = dolfile.read(4)
-            while sample != b'4E800020':
-                sample = dolfile.read(4)
-            dolfile.seek(-4, 1)
-            insertCodeHook(dolfile, codehandler, dolfile.tell())
-
-def insertCodeHook(dolfile, codehandler, address):
-    dolfile.seek(address)
-
-    if dolfile.read(4) != bytes.fromhex('4E800020'):
-        parser.error("Codehandler hook given is not a blr")
-
-    dolfile.seek(-4, 1)
-    dolfile.insertBranch(codehandler.startaddress, address, lk=0)
+    return dolFile, gctFile, isText   
 
 if __name__ == "__main__":
-    isText = False
     if not os.path.isdir('tmp'):
         os.mkdir('tmp')
 
@@ -624,7 +678,7 @@ if __name__ == "__main__":
          
     if args.alloc:
         try:
-            _allocation = '{:08X}'.format(int(args.alloc.lstrip('0x'), 16))
+            _allocation = int(args.alloc.lstrip('0x'), 16)
         except:
             parser.error('The allocation was invalid\n')
     else:
@@ -635,7 +689,7 @@ if __name__ == "__main__":
             parser.error('The codehandler hook address was beyond bounds\n')
         else:
             try:
-                _codehook = '{:08X}'.format(int(args.codehook.lstrip('0x'), 16))
+                _codehook = int(args.codehook.lstrip('0x'), 16)
             except:
                 parser.error('The codehandler hook address was invalid\n')
     else:
@@ -649,23 +703,7 @@ if __name__ == "__main__":
     else:
         codehandlerFile = 'codehandler.bin'
 
-    dolFile, gctFile = sortArgFiles(args.file, args.file2)
-
-    HEAP = b'HEAP'
-    LOADERSIZE = b'LSIZ'
-    HANDLERSIZE = b'HSIZ'
-    CODESIZE = b'CSIZ'
-    CODEHOOK = b'HOOK'
-    DH = b'DH'
-    DL = b'DL'
-    GH = b'GH'
-    GL = b'GL'
-    IH = b'IH'
-    IL = b'IL'
-
-
-    WIIVIHOOK = b'7CE33B783887003438A7003838C7004C'
-    GCNVIHOOK = b'7C030034388300205485083C7C7F2A14A00300007C7D2A1420A4003FB0030000'
+    dolFile, gctFile, isText = sortArgFiles(args.file, args.file2)
 
     try:
         if not os.path.isdir('BUILD'):
@@ -679,7 +717,7 @@ if __name__ == "__main__":
 
         time1 = time.time()
             
-        build(gctFile, dolFile, codehandlerFile, _allocation)
+        build(gctFile, dolFile, codehandlerFile, _allocation, _codehook, isText)
         
         shutil.rmtree('tmp')
         if not args.quiet:

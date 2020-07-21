@@ -85,7 +85,7 @@ class DolFile(object):
     # Unsupported: Reading an entire dol file 
     # Assumption: A read should not go beyond the current section 
     def read(self, size):
-        if self._curraddr + size >= self._current_end:
+        if self._curraddr + size > self._current_end:
             raise RuntimeError("Read goes over current section")
             
         self._curraddr += size  
@@ -93,7 +93,7 @@ class DolFile(object):
         
     # Assumption: A write should not go beyond the current section 
     def write(self, data):
-        if self._curraddr + len(data) >= self._current_end:
+        if self._curraddr + len(data) > self._current_end:
             raise RuntimeError("Write goes over current section")
             
         self._rawdata.write(data)
@@ -150,7 +150,7 @@ class DolFile(object):
         self._rawdata.seek(oldpos)
 
     def insertBranch(self, to, _from, lk=0):
-        self.write(((to - _from) & 0x3FFFFFFF | 0x48000000 | lk).to_bytes(4, byteorder='big', signed=False))
+        self.write(((to - _from) & 0x3FFFFFF | 0x48000000 | lk).to_bytes(4, byteorder='big', signed=False))
 
         
 
