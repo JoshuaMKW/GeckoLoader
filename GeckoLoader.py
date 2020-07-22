@@ -5,8 +5,8 @@ import os
 import time
 import re
 import shutil
-import glob
 import dolreader
+import random
 
 from io import BytesIO, RawIOBase
 
@@ -118,28 +118,41 @@ class CodeHandler(object):
             encodeType = result['encoding']
 
         with open(r'{}'.format(geckoText), 'r', encoding=encodeType) as gecko:
-            data = gecko.readlines()
             geckoCodes = ''
+            state = None
 
-            for line in data:
-                if parseAll.lower() == 'all':
-                    geckoLine = re.findall(r'[A-F0-9]{8}\s[A-F0-9]{8}', line, re.IGNORECASE)
-                elif parseAll.lower() == 'active':
-                    geckoLine = re.findall(r'\*\s[A-F0-9]{8}\s[A-F0-9]{8}', line, re.IGNORECASE)
-                else:
-                    geckoLine = re.findall(r'\*\s[A-F0-9]{8}\s[A-F0-9]{8}', line, re.IGNORECASE)
+            for line in gecko.readlines():
+                if line in ('', '\n'):
+                    continue
 
-                geckoLine = ''.join(geckoLine)
-                geckoLine = re.sub(r'\s+', '', geckoLine)
-                geckoCodes = geckoCodes + geckoLine.replace('*', '')
+                if state is None:
+                    if line.startswith('$'):
+                        state = 'Dolphin'
+                    else:
+                        state = 'OcarinaM'
+                
+                try:
+                    if state == 'OcarinaM':
+                        if parseAll.lower() == 'all':
+                            geckoLine = re.findall(r'[A-F0-9]{8}[\t\f ][A-F0-9]{8}', line, re.IGNORECASE)[0]
+                        elif parseAll.lower() == 'active':
+                            geckoLine = re.findall(r'(?:\*\s*)([A-F0-9]{8}[\t\f ][A-F0-9]{8})', line, re.IGNORECASE)[0]
+                        else:
+                            geckoLine = re.findall(r'(?:\*\s*)([A-F0-9]{8}[\t\f ][A-F0-9]{8})', line, re.IGNORECASE)[0]
+                    else:
+                        geckoLine = re.findall(r'(?<![$\*])[A-F0-9]{8}[\t\f ][A-F0-9]{8}', line, re.IGNORECASE)[0]
+                except IndexError:
+                    continue
+
+                geckoCodes += geckoLine.replace(' ', '').strip()
 
         return geckoCodes
 
-def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
-    with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(resource_path(os.path.join('bin', r'{}'.format(codehandlerFile))), 'rb') as handler, open(os.path.join('tmp', 'tmp.bin'), 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
+def build(gctFile, dolFile, codehandlerFile, tmpdir, allocation: int, codehook: int):
+    with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as code, open(r'{}'.format(dolFile), 'rb') as dol, open(resource_path(os.path.join('bin', r'{}'.format(codehandlerFile))), 'rb') as handler, open(os.path.join(tmpdir, 'tmp.bin'), 'wb+') as tmp, open(os.path.join('BUILD', os.path.basename(dolFile)), 'wb+') as final:
 
         if get_size(dol) < 0x100:
-            shutil.rmtree('tmp')
+            shutil.rmtree(tmpdir)
             parser.error('DOL header is corrupted. Please provide a clean file')
         
         dol.seek(0)
@@ -159,7 +172,7 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
 
         if '.' in gctFile:
             if os.path.splitext(gctFile)[1].lower() == '.txt':
-                with open(os.path.join('tmp', 'gct.bin'), 'wb+') as temp:
+                with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
                     temp.write(bytes.fromhex('00D0C0DE'*2 + codehandler.geckoParser(gctFile, args.txtcodes) + 'F000000000000000'))
                     temp.seek(0)
                     codehandler.geckocodes = GCT(temp)    
@@ -169,8 +182,9 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
             else:
                 parser.error('No valid gecko code file found')
         else:
-            with open(os.path.join('tmp', 'gct.bin'), 'wb+') as temp:
+            with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
                 temp.write(bytes.fromhex('00D0C0DE'*2))
+
                 for file in os.listdir(gctFile):
                     if os.path.isfile(os.path.join(gctFile, file)):
                         if os.path.splitext(file)[1].lower() == '.txt':
@@ -180,6 +194,7 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
                                 temp.write(gct.read()[8:-8])
                         else:
                             print(TYELLOW + '  :: WARNING: {} is not a .txt or .gct file'.format(file) + TRESET)
+                
                 temp.write(bytes.fromhex('F000000000000000'))
                 temp.seek(0)
                 print(temp.read())
@@ -213,19 +228,23 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
 
         if args.movecodes == 'LEGACY':
             codehandler.allocation = 0x80003000 - (codehandler.initaddress + codehandler.handlerlength)
-            patchLegacyHandler(codehandler, tmp, dolfile)
+            status = patchLegacyHandler(codehandler, tmp, dolfile)
             legacy = True
         elif args.movecodes == 'ARENA':
-            patchGeckoLoader(code, codehandler, tmp, dolfile, dump_address)
+            status = patchGeckoLoader(code, codehandler, tmp, dolfile, dump_address)
             legacy = False
         else: #Auto decide area
             if codehandler.initaddress + codehandler.handlerlength + codehandler.geckocodes.size > 0x80002FFF:
-                patchGeckoLoader(code, codehandler, tmp, dolfile, dump_address)
+                status = patchGeckoLoader(code, codehandler, tmp, dolfile, dump_address)
                 legacy = False
             else:
                 codehandler.allocation = 0x80003000 - (codehandler.initaddress + codehandler.handlerlength)
-                patchLegacyHandler(codehandler, tmp, dolfile)
+                status = patchLegacyHandler(codehandler, tmp, dolfile)
                 legacy = True
+
+        if status is False:
+            shutil.rmtree(tmpdir)
+            parser.error(TREDLIT + 'Not enough text sections to patch the DOL file! Potentially due to previous mods?\n' + TRESET)
 
         dolfile.save(final)
         
@@ -274,7 +293,6 @@ def build(gctFile, dolFile, codehandlerFile, allocation: int, codehook: int):
 
             for bit in info:
                 print(bit)
-        return
 
 def determineCodeLength(codetype, info):
     if codetype.startswith(b'\x06'):
@@ -429,10 +447,15 @@ def patchGeckoLoader(fLoader, codehandler: CodeHandler, tmp, dolfile: dolreader.
     dolfile._rawdata.write(tmp.read())
     dolfile.align(256)
 
-    assertTextSections(dolfile, 6, [[int(entrypoint, 16), geckoloader_offset]])
+    status = assertTextSections(dolfile, 6, [[int(entrypoint, 16), geckoloader_offset]])
+
+    if status is False:
+        return False
 
     '''Write game entry in DOL file header'''
     dolfile.setInitPoint(int(entrypoint, 16))
+
+    return True
 
 def patchLegacyHandler(codehandler: CodeHandler, tmp, dolfile: dolreader.DolFile):
     handler_offset = dolfile.getsize()
@@ -444,8 +467,14 @@ def patchLegacyHandler(codehandler: CodeHandler, tmp, dolfile: dolreader.DolFile
     dolfile._rawdata.write(codehandler.codehandler.read() + codehandler.geckocodes.codelist.read())
     dolfile.align(256)
 
-    assertTextSections(dolfile, 6, [[codehandler.initaddress, handler_offset]])
+    status = assertTextSections(dolfile, 6, [[codehandler.initaddress, handler_offset]])
+
+    if status is False:
+        return False
+
     determineCodeHook(dolfile, codehandler)
+
+    return True
 
 def assertTextSections(dolfile: dolreader.DolFile, textsections: int, sections_list: list):
     offset = len(dolfile._text) << 2
@@ -473,9 +502,10 @@ def assertTextSections(dolfile: dolreader.DolFile, textsections: int, sections_l
         dolfile._rawdata.seek(0x90 + offset)
         for size in size_list:
             dolfile._rawdata.write(bytes.fromhex('{:08X}'.format(size)))
+
+        return True
     else:
-        shutil.rmtree('tmp')
-        parser.error(TREDLIT + 'Not enough text sections to patch the DOL file! Potentially due to previous mods?\n' + TRESET)
+        return False
 
 def figureLoaderData(tmp, fLoader, codehandler: CodeHandler, dolfile: dolreader.DolFile, entrypoint: str, initpoint: list):
     upperAddr, lowerAddr = entrypoint[:int(len(entrypoint)/2)], entrypoint[int(len(entrypoint)/2):]
@@ -612,9 +642,6 @@ def sortArgFiles(fileA, fileB):
     return dolFile, gctFile
 
 if __name__ == "__main__":
-    if not os.path.isdir('tmp'):
-        os.mkdir('tmp')
-
     parser = argparse.ArgumentParser(prog='GeckoLoader',
                                      description='Process files and allocations for GeckoLoader',
                                      allow_abbrev=False)
@@ -707,10 +734,15 @@ if __name__ == "__main__":
             parser.error('File/folder "' + gctFile + '" does not exist')
 
         time1 = time.time()
+
+        tmpdir = ''.join(random.choice('1234567890-_abcdefghijklomnpqrstuvwxyz') for i in range(6)) + '-GeckoLoader'
+
+        if not os.path.isdir(tmpdir):
+            os.mkdir(tmpdir)
             
-        build(gctFile, dolFile, codehandlerFile, _allocation, _codehook)
+        build(gctFile, dolFile, codehandlerFile, tmpdir, _allocation, _codehook)
         
-        shutil.rmtree('tmp')
+        shutil.rmtree(tmpdir)
         if not args.quiet:
             print(TGREENLIT + '\n  :: Compiled in {:0.4f} seconds!\n'.format(time.time() - time1) + TRESET)
 
