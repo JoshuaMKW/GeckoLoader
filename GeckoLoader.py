@@ -197,8 +197,6 @@ def build(gctFile, dolFile, codehandlerFile, tmpdir, allocation: int, codehook: 
                 
                 temp.write(bytes.fromhex('F000000000000000'))
                 temp.seek(0)
-                print(temp.read())
-                temp.seek(0)
                 codehandler.geckocodes = GCT(temp)
 
         if args.optimize == True:
