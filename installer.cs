@@ -1,6 +1,4 @@
-﻿#define SOURCE
-
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -43,7 +41,7 @@ public class Installer
 
 		while (handled == false)
         {
-			Console.Write("{0} ({1}): ", msg, String.Join("/", options));
+			Console.Write("{0} ({1}): ", msg, String.Join("|", options));
 
 			input = Console.ReadLine();
 			if (options.Any(s => s.Contains(input.ToLower())))
@@ -79,6 +77,8 @@ public class Installer
     {
 		DirectoryInfo cwd = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory()));
 		DirectoryInfo programspace = new DirectoryInfo(this.programfolder);
+
+		bool validinstall = false;
 		
 		try
         {
@@ -98,6 +98,7 @@ public class Installer
 				if (ext.Contains(file.Extension.ToLower()))
 				{
 					if (file.Extension.ToLower() == ".exe" && file.Name != "GeckoLoader.exe") continue;
+					if (file.Name.ToLower() == "geckoloader.py" || file.Name.ToLower() == "geckoloader.exe") validinstall = true;
 					file.CopyTo(Path.Combine(programspace.FullName, file.Name), true);
                 }
 			}
@@ -119,7 +120,7 @@ public class Installer
 			return false;
         }
 
-		return true;
+		return validinstall;
 	}
 
 	public void GetUserInput()
@@ -127,22 +128,29 @@ public class Installer
 		string status;
 		string[] options = { "y", "n" };
 
-		Console.SetWindowSize(80, 7);
+		Console.SetWindowSize(84, 30);
 		Console.Title = "GeckoLoader Installer";
 		Console.WriteLine("This installer modifies the Windows User PATH variable\n");
 
 		status = HandleConsoleQuestion("Are you sure you want to continue?", options);
+
 		if (status.ToLower() == "y")
         {
 			this.SetProgramFolderToPath("GeckoLoader");
-			this.MoveFilesToprogramfolder("*", this.copyfiles, this.overwrite);
-
-			Console.WriteLine("Finished installation successfully! You can run GeckoLoader from anywhere\nby simply calling \"GeckoLoader <dol> <gct|txt|folder> [options]\"");
+			if (this.MoveFilesToprogramfolder("*", this.copyfiles, this.overwrite) == false)
+			{
+				Console.WriteLine("Failed to install :( Is Geckoloader and its dependancies in the same directory?");
+			}
+            else
+            {
+				Console.WriteLine("Finished installation successfully! You can run GeckoLoader from anywhere\nby simply calling \"GeckoLoader <dol> <gct|txt|folder> [options]\"");
+            }
         }
 		else
         {
 			Console.WriteLine("That's okay! You can always run this program again when you feel ready.");
         }
-		//Console.ReadKey();
+		Console.Write("Press any key to exit . . . ");
+		Console.ReadKey();
 	}
 }
