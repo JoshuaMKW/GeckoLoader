@@ -1,7 +1,7 @@
 from io import BytesIO
 from access import *
 
-class DolFile(object):
+class DolFile:
 
     def __init__(self, f):
         self.rawData = BytesIO(f.read())
