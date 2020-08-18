@@ -217,9 +217,7 @@ if __name__ == "__main__":
             dolFile = DolFile(dol)
 
         codehandler.optimizeList = args.optimize
-
-        if args.protect and args.movecodes == "ARENA":
-            geckoKernel.protect_game(codehandler)
+        geckoKernel.protect = args.protect
 
         if args.dest:
             if os.path.splitext(args.dest)[1] == "":

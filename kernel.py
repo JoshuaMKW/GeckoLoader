@@ -294,6 +294,7 @@ class KernelLoader:
         self.gpDiscDataList = None
         self.codeLocation = None
         self.initAddress = None
+        self.protect = False
         self.verbosity = 0
         self.quiet = False
 
@@ -487,6 +488,11 @@ class KernelLoader:
                     temp.write(bytes.fromhex('F000000000000000'))
                     temp.seek(0)
                     codehandler.geckoCodes = GCT(temp)
+
+            
+
+            if self.protect and self.build == "ARENA":
+                self.protect_game(codehandler)
 
             if self.codeLocation == 'AUTO':
                 if codehandler.initAddress + codehandler.handlerLength + codehandler.geckoCodes.size > 0x80002FFF:
