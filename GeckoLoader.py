@@ -1,25 +1,54 @@
 #Written by JoshuaMK 2020
-#Start.dol EclipseCodes -m ARENA --codehook 802A80D0 -o -vv
 
 import sys
 import os
-import re
-import shutil
 import random
+import shutil
 import argparse
+
+from distutils.version import LooseVersion
+
+sys.path.extend([os.path.join(os.path.dirname(__file__), 'imports')])
 
 from kernel import *
 from access import *
+from versioncheck import Updater
 
-_VERSION_ = "v5.0.0"
+try:
+    import colorama
+    from colorama import Fore, Style
+    colorama.init()
+    TRESET = Style.RESET_ALL
+    TGREEN = Fore.GREEN
+    TGREENLIT = Style.BRIGHT + Fore.GREEN
+    TYELLOW = Fore.YELLOW
+    TYELLOWLIT = Style.BRIGHT + Fore.YELLOW
+    TRED = Fore.RED
+    TREDLIT = Style.BRIGHT + Fore.RED
 
-def determine_codehook(dolFile: DolFile, codehandler: CodeHandler):
-    if codehandler.hookAddress == None:
-        assert_code_hook(dolFile, codehandler, GCNVIHOOK, WIIVIHOOK)
+except ImportError:
+    TRESET = ''
+    TGREEN = ''
+    TGREENLIT = ''
+    TYELLOW = ''
+    TYELLOWLIT = ''
+    TRED = ''
+    TREDLIT = ''
+
+__version__ = 'v5.1.0'
+
+def resource_path(relative_path: str):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler):
+    if codeHandler.hookAddress == None:
+        assert_code_hook(dolFile, codeHandler, GCNVIHOOK, WIIVIHOOK)
     else:
-        insert_code_hook(dolFile, codehandler, codehandler.hookAddress)
+        insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
 
-def assert_code_hook(dolFile: DolFile, codehandler: CodeHandler, gcnhook: bytes, wiihook: bytes):
+def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, gcnhook: bytes, wiihook: bytes):
     for offset, address, size in dolFile.textSections:
         dolFile.seek(address, 0)
         sample = dolFile.read(size)
@@ -36,26 +65,26 @@ def assert_code_hook(dolFile: DolFile, codehandler: CodeHandler, gcnhook: bytes,
             else:
                 continue
 
-        sample = dolFile.read(4)
-        while sample != b'\x4E\x80\x00\x20':
-            sample = dolFile.read(4)
+        sample = read_uint32(dolFile)
+        while sample != 0x4E800020:
+            sample = read_uint32(dolFile)
 
         dolFile.seek(-4, 1)
-        codehandler.hookAddress = dolFile.tell()
+        codeHandler.hookAddress = dolFile.tell()
 
-        insert_code_hook(dolFile, codehandler, codehandler.hookAddress)
+        insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
         return
 
-    parser.error('Failed to find a hook address. Try using option --codehook to use your own address')
+    parser.error(color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=TREDLIT))
 
-def insert_code_hook(dolFile: DolFile, codehandler: CodeHandler, address: int):
+def insert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, address: int):
     dolFile.seek(address)
 
-    if dolFile.read(4) != b'\x4E\x80\x00\x20':
-        parser.error("Codehandler hook given is not a blr")
+    if read_uint32(dolFile) != 0x4E800020:
+        parser.error(color_text("Codehandler hook given is not a blr\n", defaultColor=TREDLIT))
 
     dolFile.seek(-4, 1)
-    dolFile.insert_branch(codehandler.startAddress, address, lk=0)
+    dolFile.insert_branch(codeHandler.startAddress, address, lk=0)
     
 def sort_file_args(fileA, fileB):
     if os.path.splitext(fileA)[1].lower() == '.dol':
@@ -65,15 +94,15 @@ def sort_file_args(fileA, fileB):
         dolFile = fileB
         gctFile = fileA
     else:
-        parser.error('No dol file was passed\n')
+        parser.error(color_text('No dol file was passed\n', defaultColor=TREDLIT))
     return dolFile, gctFile
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(prog='GeckoLoader ' + _VERSION_,
-                                     description='Process files and allocations for GeckoLoader',
-                                     allow_abbrev=False)
+    parser = CommandLineParser(prog='GeckoLoader ' + __version__,
+                               description='Process files and allocations for GeckoLoader',
+                               allow_abbrev=False)
 
-    parser.add_argument('dolFile', help='DOL file')
+    parser.add_argument('dolfile', help='DOL file')
     parser.add_argument('codelist', help='Folder or Gecko GCT|TXT file')
     parser.add_argument('-a', '--alloc',
                         help='Define the size of the code allocation in hex, only applies when using the ARENA space',
@@ -95,17 +124,17 @@ if __name__ == "__main__":
                         default='active',
                         metavar='TYPE')
     parser.add_argument('--handler',
-                        help='''Which codehandler gets used. "MINI" uses a smaller codehandler
+                        help='''Which codeHandler gets used. "MINI" uses a smaller codeHandler
                         which only supports (0x, 2x, Cx, and E0 types) and supports up to
                         600 lines of gecko codes when using the legacy codespace.
-                        "FULL" is the standard codehandler, supporting up to 350 lines of code
+                        "FULL" is the standard codeHandler, supporting up to 350 lines of code
                         in the legacy codespace.
                         "MINI" should only be considered if using the legacy codespace''',
                         default='FULL',
                         choices=['MINI', 'FULL'],
                         metavar='TYPE')
     parser.add_argument('--codehook',
-                        help='''Choose where the codehandler hooks to, needs to exist at a blr instruction''',
+                        help='''Choose where the codeHandler hooks to, needs to exist at a blr instruction''',
                         metavar='ADDRESS')
     parser.add_argument('-q', '--quiet',
                         help='Print nothing to the console',
@@ -119,36 +148,76 @@ if __name__ == "__main__":
                         ram writes into the dol file, and removing them from the codelist''',
                         action='store_true')
     parser.add_argument('-p', '--protect',
-                        help='''Targets and nullifies the standard codehandler provided by loaders and Dolphin Emulator,
+                        help='''Targets and nullifies the standard codeHandler provided by loaders and Dolphin Emulator,
                         only applies when the ARENA is used (Can be forced using option (-m|--movecodes))''',
                         action='store_true')
     parser.add_argument('--dest',
                         help='Target path to put the modified DOL, can be a folder or file',
                         metavar='PATH')
+    parser.add_argument('--check-update',
+                        help='''Checks to see if a new update exists on the GitHub Repository releases page,
+                        this option overrides all other commands.''',
+                        action='store_true')
 
     if len(sys.argv) == 1:
-        version = _VERSION_.rjust(9, ' ')
+        version = __version__.rjust(9, ' ')
+
+        if os.path.normpath(os.path.join(os.path.expanduser('~'), "AppData", "Roaming")) in os.path.dirname(__file__):
+            helpMessage = 'Try the command: GeckoLoader -h'.center(64, ' ')
+        else:
+            if os.path.splitext(__file__)[1].lower() == ".py":
+                helpMessage = 'Try the command: python GeckoLoader.py -h'.center(64, ' ')
+            else:
+                helpMessage = 'Try the command: .\GeckLoader.exe -h'.center(64, ' ')
+
         logo = ['                                                                ',
-                '       ╔═════════════════════════════════════════════════╗      ',
-                '       ║                                                 ║      ',
-                '       ║  ┌───┬───┬───┬┐┌─┬───┬┐  ┌───┬───┬───┬───┬───┐  ║      ',
-                '       ║  │┌─┐│┌──┤┌─┐│││┌┤┌─┐││  │┌─┐│┌─┐├┐┌┐│┌──┤┌─┐│  ║      ',
-                '       ║  ││ └┤└──┤│ └┤└┘┘││ │││  ││ │││ ││││││└──┤└─┘│  ║      ',
-                '       ║  ││┌─┤┌──┤│ ┌┤┌┐│││ │││ ┌┤│ ││└─┘│││││┌──┤┌┐┌┘  ║      ',
-                '       ║  │└┴─│└──┤└─┘│││└┤└─┘│└─┘│└─┘│┌─┐├┘└┘│└──┤││└┐  ║      ',
-                '       ║  └───┴───┴───┴┘└─┴───┴───┴───┴┘ └┴───┴───┴┘└─┘  ║      ',
-                '       ║                                                 ║      ',
-                '       ║          ┌┬───┬───┬┐ ┌┬┐ ┌┬───┬─┐┌─┬┐┌─┐        ║      ',
-                '       ║          ││┌─┐│┌─┐││ │││ ││┌─┐│ └┘ │││┌┘        ║      ',
-                '       ║          │││ ││└──┤└─┘││ │││ ││┌┐┌┐│└┘┘         ║      ',
-                '       ║    ┌──┐┌┐│││ │├──┐│┌─┐││ ││└─┘││││││┌┐│ ┌──┐    ║      ',
-                '       ║    └──┘│└┘│└─┘│└─┘││ ││└─┘│┌─┐││││││││└┐└──┘    ║      ',
-                '       ║        └──┴───┴───┴┘ └┴───┴┘ └┴┘└┘└┴┘└─┘        ║      ',
-               f'       ║                                     {version}   ║      ',
-                '       ╚═════════════════════════════════════════════════╝      ',
+                ' ╔═══════════════════════════════════════════════════════════╗  ',
+                ' ║                                                           ║  ',
+                ' ║  ┌───┐┌───┐┌───┐┌┐┌─┐┌───┐┌┐   ┌───┐┌───┐┌───┐┌───┐┌───┐  ║  ',
+                ' ║  │┌─┐││┌──┘│┌─┐││││┌┘│┌─┐│││   │┌─┐││┌─┐│└┐┌┐││┌──┘│┌─┐│  ║  ',
+                ' ║  ││ └┘│└──┐││ └┘│└┘┘ ││ ││││   ││ ││││ ││ │││││└──┐│└─┘│  ║  ',
+                ' ║  ││┌─┐│┌──┘││ ┌┐│┌┐│ ││ ││││ ┌┐││ │││└─┘│ │││││┌──┘│┌┐┌┘  ║  ',
+                ' ║  │└┴─││└──┐│└─┘││││└┐│└─┘││└─┘││└─┘││┌─┐│┌┘└┘││└──┐│││└┐  ║  ',
+                ' ║  └───┘└───┘└───┘└┘└─┘└───┘└───┘└───┘└┘ └┘└───┘└───┘└┘└─┘  ║  ',
+                ' ║                                                           ║  ',
+                ' ║           ┌┐┌───┐┌───┐┌┐ ┌┐┌┐ ┌┐┌───┐┌─┐┌─┐┌┐┌─┐          ║  ',
+                ' ║           │││┌─┐││┌─┐│││ ││││ │││┌─┐││ └┘ ││││┌┘          ║  ',
+                ' ║           ││││ │││└──┐│└─┘│││ ││││ │││┌┐┌┐││└┘┘           ║  ',
+                ' ║     ┌──┐┌┐││││ ││└──┐││┌─┐│││ │││└─┘││││││││┌┐│ ┌──┐      ║  ',
+                ' ║     └──┘│└┘││└─┘││└─┘│││ │││└─┘││┌─┐││││││││││└┐└──┘      ║  ',
+                ' ║         └──┘└───┘└───┘└┘ └┘└───┘└┘ └┘└┘└┘└┘└┘└─┘          ║  ',
+               f' ║                                                {version}  ║  ',
+                ' ╚═══════════════════════════════════════════════════════════╝  ',
+                '                                                                ',
+                '        GeckoLoader is a cli tool for allowing extended         ',
+                '           gecko code space in all Wii and GC games.            ',
+                '                                                                ',
+               f'{helpMessage}',
                 '                                                                ']
         for line in logo:
-            print(line)
+            print(color_text(line, [('║', TREDLIT), ('╔╚╝╗═', TRED)], TGREENLIT))
+        sys.exit(0)
+    elif '--check-update' in sys.argv:
+        repoChecker = Updater('JoshuaMKW', 'GeckoLoader')
+
+        tag, status = repoChecker.get_newest_version()
+
+        print('')
+        
+        if status is False:
+            parser.error(color_text(tag + '\n', defaultColor=TREDLIT), print_usage=False)
+
+        if LooseVersion(tag) > LooseVersion(__version__):
+            print(color_text(f'  :: A new update is live at {repoChecker.gitReleases.format(repoChecker.owner, repoChecker.repo)}', defaultColor=TYELLOWLIT))
+            print(color_text(f'  :: Current version is "{__version__}", Most recent version is "{tag}"', defaultColor=TYELLOWLIT))
+        elif LooseVersion(tag) < LooseVersion(__version__):
+            print(color_text('  :: No update available', defaultColor=TGREENLIT))
+            print(color_text(f'  :: Current version is "{__version__}(dev)", Most recent version is "{tag}(release)"', defaultColor=TGREENLIT))
+        else:
+            print(color_text('  :: No update available', defaultColor=TGREENLIT))
+            print(color_text(f'  :: Current version is "{__version__}(release)", Most recent version is "{tag}(release)"', defaultColor=TGREENLIT))
+        
+        print('')
         sys.exit(0)
 
     args = parser.parse_args()
@@ -157,84 +226,78 @@ if __name__ == "__main__":
         try:
             _allocation = int(args.alloc, 16)
         except ValueError:
-            parser.error('The allocation was invalid\n')
+            parser.error(color_text('The allocation was invalid\n', defaultColor=TREDLIT))
     else:
         _allocation = None
 
     if args.codehook:
         if 0x80000000 > int(args.codehook, 16) >= 0x81800000:
-            parser.error('The codehandler hook address was beyond bounds\n')
+            parser.error(color_text('The codeHandler hook address was beyond bounds\n', defaultColor=TREDLIT))
         else:
             try:
                 _codehook = int(args.codehook, 16)
             except ValueError:
-                parser.error('The codehandler hook address was invalid\n')
+                parser.error(color_text('The codeHandler hook address was invalid\n', defaultColor=TREDLIT))
     else:
         _codehook = None
 
     if args.handler:
         if args.handler == 'MINI':
-            codehandlerFile = 'codehandler-mini.bin'
+            codeHandlerFile = 'codehandler-mini.bin'
         else:
-            codehandlerFile = 'codehandler.bin'
+            codeHandlerFile = 'codehandler.bin'
     else:
-        codehandlerFile = 'codehandler.bin'
-
-    #dolFile, gctFile = sort_file_args(args.fileA, args.fileB)
+        codeHandlerFile = 'codehandler.bin'
 
     try:
-        if not os.path.isdir('BUILD'):
-            os.mkdir('BUILD')
-            
-        if not os.path.isfile(args.dolFile):
-            parser.error('File "' + dolFile + '" does not exist')
+        if not os.path.isfile(args.dolfile):
+            parser.error(color_text(f'File "{args.dolfile}" does not exist\n', defaultColor=TREDLIT))
             
         if not os.path.exists(args.codelist):
-            parser.error('File/folder "' + gctFile + '" does not exist')
+            parser.error(color_text(f'File/folder "{args.codelist}" does not exist\n', defaultColor=TREDLIT))
 
         tmpdir = ''.join(random.choice('1234567890-_abcdefghijklomnpqrstuvwxyz') for i in range(6)) + '-GeckoLoader'
 
-        if not os.path.isdir(tmpdir):
-            os.mkdir(tmpdir)
-
-        with open(resource_path(os.path.join('bin', os.path.normpath(codehandlerFile))), 'rb') as handler:
-            codehandler = CodeHandler(handler)
-            codehandler.allocation = _allocation
-            codehandler.hookAddress = _codehook
-            codehandler.includeAll = args.txtcodes
+        with open(resource_path(os.path.join('bin', os.path.normpath(codeHandlerFile))), 'rb') as handler:
+            codeHandler = CodeHandler(handler)
+            codeHandler.allocation = _allocation
+            codeHandler.hookAddress = _codehook
+            codeHandler.includeAll = args.txtcodes
 
         with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as kernelfile:
             geckoKernel = KernelLoader(kernelfile)
 
-            if (args.init is not None):
+            if args.init is not None:
                 geckoKernel.initAddress = args.init.lstrip("0x").upper()
 
             geckoKernel.codeLocation = args.movecodes
             geckoKernel.verbosity = args.verbose
             geckoKernel.quiet = args.quiet
 
-        with open(os.path.normpath(args.dolFile), 'rb') as dol:
+        with open(os.path.normpath(args.dolfile), 'rb') as dol:
             dolFile = DolFile(dol)
 
-        codehandler.optimizeList = args.optimize
+        codeHandler.optimizeList = args.optimize
         geckoKernel.protect = args.protect
 
         if args.dest:
             if os.path.splitext(args.dest)[1] == "":
-                dest = os.path.normpath(os.path.join(os.getcwd(), args.dest.lstrip('\\').lstrip('/'), os.path.basename(args.dolFile)))
+                dest = os.path.normpath(os.path.join(os.getcwd(), args.dest.lstrip('\\').lstrip('/'), os.path.basename(args.dolfile)))
             else:
                 dest = os.path.normpath(os.path.join(os.getcwd(), args.dest.lstrip('\\').lstrip('/')))
         else:
-            dest = os.path.normpath(os.path.join(os.getcwd(), "BUILD", os.path.basename(args.dolFile)))
+            dest = os.path.normpath(os.path.join(os.getcwd(), "BUILD", os.path.basename(args.dolfile)))
 
         if not os.path.exists(dest) and os.path.dirname(dest) not in ('', '/'):
             os.makedirs(os.path.dirname(dest), exist_ok=True)
 
-        geckoKernel.build(args.codelist, dolFile, codehandler, tmpdir, dest)
-        
+        if not os.path.exists(os.path.abspath(tmpdir)):
+            os.mkdir(tmpdir)
+
+        geckoKernel.build(parser, args.codelist, dolFile, codeHandler, tmpdir, dest)
+
         shutil.rmtree(tmpdir)
         sys.exit(0)
 
-    except FileNotFoundError as err:
-        parser.error(err)
-        sys.exit(1)
+    except FileNotFoundError as e:
+        parser.error(color_text(e + '\n', defaultColor=TREDLIT))
