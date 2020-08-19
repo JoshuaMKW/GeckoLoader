@@ -90,7 +90,7 @@ def color_text(text: str, textToColor: list=[('', None)], defaultColor: str=None
 
     format = False
     for itemPair in textToColor:
-        if itemPair[0] != '' or itemPair[1] is not None:
+        if itemPair[0] != '' and itemPair[1] is not None:
             format = True
             break
 
