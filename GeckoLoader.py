@@ -35,7 +35,7 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-__version__ = 'v5.1.0'
+__version__ = 'v5.1.1'
 
 def resource_path(relative_path: str):
     """ Get absolute path to resource, works for dev and for PyInstaller """
