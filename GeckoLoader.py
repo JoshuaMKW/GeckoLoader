@@ -1,18 +1,19 @@
 #Written by JoshuaMK 2020
 
-import sys
+import argparse
 import os
 import random
 import shutil
-import argparse
-
+import sys
 from distutils.version import LooseVersion
 
-sys.path.extend([os.path.join(os.path.dirname(__file__), 'imports')])
-
-from kernel import *
-from access import *
+from dolreader import DolFile
+from kernel import CodeHandler, KernelLoader
+from tools import CommandLineParser, color_text
 from versioncheck import Updater
+
+#sys.path.extend([os.path.join(os.path.dirname(__file__), 'imports')])
+
 
 try:
     import colorama
@@ -35,56 +36,12 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-__version__ = 'v5.1.1'
+__version__ = 'v5.3.0'
 
 def resource_path(relative_path: str):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
-
-def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler):
-    if codeHandler.hookAddress == None:
-        assert_code_hook(dolFile, codeHandler, GCNVIHOOK, WIIVIHOOK)
-    else:
-        insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
-
-def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, gcnhook: bytes, wiihook: bytes):
-    for offset, address, size in dolFile.textSections:
-        dolFile.seek(address, 0)
-        sample = dolFile.read(size)
-
-        result = sample.find(gcnhook)
-        if result >= 0:
-            dolFile.seek(address, 0)
-            dolFile.seek(result, 1)
-        else:
-            result = sample.find(wiihook)
-            if result >= 0:
-                dolFile.seek(address, 0)
-                dolFile.seek(result, 1)
-            else:
-                continue
-
-        sample = read_uint32(dolFile)
-        while sample != 0x4E800020:
-            sample = read_uint32(dolFile)
-
-        dolFile.seek(-4, 1)
-        codeHandler.hookAddress = dolFile.tell()
-
-        insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
-        return
-
-    parser.error(color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=TREDLIT))
-
-def insert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, address: int):
-    dolFile.seek(address)
-
-    if read_uint32(dolFile) != 0x4E800020:
-        parser.error(color_text("Codehandler hook given is not a blr\n", defaultColor=TREDLIT))
-
-    dolFile.seek(-4, 1)
-    dolFile.insert_branch(codeHandler.startAddress, address, lk=0)
     
 def sort_file_args(fileA, fileB):
     if os.path.splitext(fileA)[1].lower() == '.dol':
@@ -157,6 +114,9 @@ if __name__ == "__main__":
     parser.add_argument('--check-update',
                         help='''Checks to see if a new update exists on the GitHub Repository releases page,
                         this option overrides all other commands.''',
+                        action='store_true')
+    parser.add_argument('--encrypt',
+                        help='Encrypts the codelist on compile time, helping to slow the snoopers',
                         action='store_true')
 
     if len(sys.argv) == 1:
@@ -268,11 +228,12 @@ if __name__ == "__main__":
             geckoKernel = KernelLoader(kernelfile)
 
             if args.init is not None:
-                geckoKernel.initAddress = args.init.lstrip("0x").upper()
+                geckoKernel.initAddress = int(args.init, 16)
 
             geckoKernel.codeLocation = args.movecodes
             geckoKernel.verbosity = args.verbose
             geckoKernel.quiet = args.quiet
+            geckoKernel.encrypt = args.encrypt
 
         with open(os.path.normpath(args.dolfile), 'rb') as dol:
             dolFile = DolFile(dol)
