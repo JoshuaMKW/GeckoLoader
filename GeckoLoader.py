@@ -90,16 +90,15 @@ if __name__ == "__main__":
                         default='FULL',
                         choices=['MINI', 'FULL'],
                         metavar='TYPE')
-    parser.add_argument('--codehook',
-                        help='''Choose where the codeHandler hooks to, needs to exist at a blr instruction''',
+    parser.add_argument('--hooktype',
+                        help='''The type of hook used for the RAM search. VI or GX are recommended,
+                        although PAD can work just as well. VI is the default hook used''',
+                        default='VI',
+                        choices=['VI', 'GX', 'PAD'],
+                        metavar='HOOK')
+    parser.add_argument('--hookaddress',
+                        help='Choose where the codeHandler hooks to, overrides auto hooks',
                         metavar='ADDRESS')
-    parser.add_argument('-q', '--quiet',
-                        help='Print nothing to the console',
-                        action='store_true')
-    parser.add_argument('-v', '--verbose',
-                        help='Print extra info to the console',
-                        default=0,
-                        action='count')
     parser.add_argument('-o', '--optimize',
                         help='''Optimizes the codelist by directly patching qualifying
                         ram writes into the dol file, and removing them from the codelist''',
@@ -118,6 +117,13 @@ if __name__ == "__main__":
     parser.add_argument('--encrypt',
                         help='Encrypts the codelist on compile time, helping to slow the snoopers',
                         action='store_true')
+    parser.add_argument('-q', '--quiet',
+                        help='Print nothing to the console',
+                        action='store_true')
+    parser.add_argument('-v', '--verbose',
+                        help='Print extra info to the console',
+                        default=0,
+                        action='count')
 
     if len(sys.argv) == 1:
         version = __version__.rjust(9, ' ')
@@ -128,7 +134,7 @@ if __name__ == "__main__":
             if os.path.splitext(__file__)[1].lower() == ".py":
                 helpMessage = 'Try the command: python GeckoLoader.py -h'.center(64, ' ')
             else:
-                helpMessage = 'Try the command: .\GeckLoader.exe -h'.center(64, ' ')
+                helpMessage = 'Try the command: .\GeckoLoader.exe -h'.center(64, ' ')
 
         logo = ['                                                                ',
                 ' ╔═══════════════════════════════════════════════════════════╗  ',
@@ -190,12 +196,12 @@ if __name__ == "__main__":
     else:
         _allocation = None
 
-    if args.codehook:
-        if 0x80000000 > int(args.codehook, 16) >= 0x81800000:
+    if args.hookaddress:
+        if 0x80000000 > int(args.hookaddress, 16) >= 0x81800000:
             parser.error(color_text('The codeHandler hook address was beyond bounds\n', defaultColor=TREDLIT))
         else:
             try:
-                _codehook = int(args.codehook, 16)
+                _codehook = int(args.hookaddress, 16)
             except ValueError:
                 parser.error(color_text('The codeHandler hook address was invalid\n', defaultColor=TREDLIT))
     else:
@@ -222,6 +228,7 @@ if __name__ == "__main__":
             codeHandler = CodeHandler(handler)
             codeHandler.allocation = _allocation
             codeHandler.hookAddress = _codehook
+            codeHandler.hookType = args.hooktype
             codeHandler.includeAll = args.txtcodes
 
         with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as kernelfile:

@@ -20,11 +20,8 @@ class DolFile:
         self.bssAddress = 0
         self.bssSize = 0
         self.entryPoint = 0x80003000
-        
-        self._currentEnd = None
 
-        if f is None:
-            return
+        if f is None: return
         
         # Read text and data section addresses and sizes 
         for i in range(self.maxTextSections + self.maxDataSections):
@@ -106,32 +103,31 @@ otherwise it returns None'''
     
     # Unsupported: Reading an entire dol file 
     # Assumption: A read should not go beyond the current section 
-    def read(self, size):
+    def read(self, _size):
         _, address, size, data = self.resolve_address(self._currLogicAddr)
-        if self._currLogicAddr + size > address + size:
+        if self._currLogicAddr + _size > address + size:
             raise RuntimeError("Read goes over current section")
             
-        self._currLogicAddr += size  
-        return data.read(size)
+        self._currLogicAddr += _size  
+        return data.read(_size)
         
     # Assumption: A write should not go beyond the current section 
-    def write(self, data):
+    def write(self, _data):
         offset, address, size, data = self.resolve_address(self._currLogicAddr)
-        if self._currLogicAddr + len(data) > address + size:
+        if self._currLogicAddr + len(_data) > address + size:
             raise RuntimeError("Write goes over current section")
             
-        data.write(data)
-        self._currLogicAddr += len(data)
+        data.write(_data)
+        self._currLogicAddr += len(_data)
     
     def seek(self, where, whence=0):
         if whence == 0:
-            offset, address, size, data = self.resolve_address(where)
+            _, address, _, data = self.resolve_address(where)
             data.seek(where - address)
             
             self._currLogicAddr = where
-            self._currentEnd = address + size
         elif whence == 1:
-            offset, address, size, data = self.resolve_address(self._currLogicAddr + where)
+            _, address, _, data = self.resolve_address(self._currLogicAddr + where)
             data.seek((self._currLogicAddr + where) - address)
             
             self._currLogicAddr += where
@@ -256,7 +252,7 @@ otherwise it returns None'''
         return True
 
     def insert_branch(self, to, _from, lk=0):
-        self.write(((to - _from) & 0x3FFFFFF | 0x48000000 | lk).to_bytes(4, byteorder='big', signed=False))
+        tools.write_uint32(self, (to - _from) & 0x3FFFFFF | 0x48000000 | lk)
 
 if __name__ == "__main__":
     # Example usage (reading some enemy info from the Pikmin 2 demo from US demo disc 17)

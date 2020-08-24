@@ -182,10 +182,17 @@ class CodeHandler:
         self.handlerLength = tools.get_size(f)
         self.initAddress = 0x80001800
         self.startAddress = 0x800018A8
+
         self.wiiVIHook = b'\x7C\xE3\x3B\x78\x38\x87\x00\x34\x38\xA7\x00\x38\x38\xC7\x00\x4C'
         self.gcnVIHook = b'\x7C\x03\x00\x34\x38\x83\x00\x20\x54\x85\x08\x3C\x7C\x7F\x2A\x14\xA0\x03\x00\x00\x7C\x7D\x2A\x14\x20\xA4\x00\x3F\xB0\x03\x00\x00'
+        self.wiiGXDrawHook = b'\x3C\xA0\xCC\x01\x38\x00\x00\x61\x3C\x80\x45\x00\x98\x05\x80\x00'
+        self.gcnGXDrawHook = b'\x38\x00\x00\x61\x3C\xA0\xCC\x01\x3C\x80\x45\x00\x98\x05\x80\x00'
+        self.wiiPADHook = b'\x3A\xB5\x00\x01\x3A\x73\x00\x0C\x2C\x15\x00\x04\x3B\x18\x00\x0C'
+        self.gcnPADHook = b'\x3A\xB5\x00\x01\x2C\x15\x00\x04\x3B\x18\x00\x0C\x3B\xFF\x00\x0C'
+
         self.allocation = None
         self.hookAddress = None
+        self.hookType = None
         self.geckoCodes = None
         self.includeAll = False
         self.optimizeList = False
@@ -211,7 +218,7 @@ class CodeHandler:
                     continue
 
                 if state is None:
-                    if line.startswith('$'):
+                    if line.startswith('$') or line.startswith('['):
                         state = 'Dolphin'
                     else:
                         state = 'OcarinaM'
@@ -338,10 +345,7 @@ class KernelLoader:
             
             elif sample == b'HOOK': #Found keyword "HOOK". Goes with the codehandler hook
                 self._rawData.seek(-4, 1)
-                if codeHandler.hookAddress == None:
-                    tools.write_uint32(self._rawData, 0)
-                else:
-                    tools.write_uint32(self._rawData, codeHandler.hookAddress)
+                tools.write_uint32(self._rawData, codeHandler.hookAddress)
 
             elif sample == b'CRPT': #Found keyword "CRPT". Boolean of the encryption
                 self._rawData.seek(-4, 1)
@@ -438,6 +442,8 @@ class KernelLoader:
             if dolFile.get_full_size() < 0x100:
                 parser.error(tools.color_text('DOL header is corrupted. Please provide a clean file\n', defaultColor=tools.TREDLIT), exit=False)
                 return
+            
+            oldStart = dolFile.entryPoint
 
             '''Initialize our codes'''
 
@@ -510,15 +516,16 @@ class KernelLoader:
 
             if self.codeLocation == 'LEGACY':
                 codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
+                hooked = determine_codehook(dolFile, codeHandler, True)
                 status = self.patch_legacy(codeHandler, dolFile)
-                if status is False:
-                    hooked, msg = determine_codehook(dolFile, codeHandler)
-                    if not hooked:
-                        parser.error(tools.color_text(msg, defaultColor=tools.TREDLIT))
                 legacy = True
             else:
+                hooked = determine_codehook(dolFile, codeHandler, False)
                 status = self.patch_arena(codeHandler, dolFile)
                 legacy = False
+            
+            if not hooked:
+                parser.error(tools.color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=tools.TREDLIT))
 
             if status is False:
                 parser.error(tools.color_text('Not enough text sections to patch the DOL file! Potentially due to previous mods?\n', defaultColor=tools.TREDLIT), exit=False)
@@ -541,34 +548,26 @@ class KernelLoader:
             if self.verbosity >= 2:
                 print('')
                 if legacy == False:
-                    info = [f'  :: GeckoLoader set at address 0x{self.initAddress:X}, start of game modified to address 0x{self.initAddress:X}',
-                            f'  :: Game function "__init_registers()" located at address 0x{dolFile.entryPoint:X}',
-                            f'  :: Code allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                    info = [f'  :: Start of game modified to address 0x{self.initAddress:X}',
+                            f'  :: Game function "__init_registers()" located at address 0x{oldStart:X}',
+                            f'  :: Allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                            f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}',
                             f'  :: Codehandler is of type "{codeHandler.type}"',
-                            f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} were already used']
-                    if codeHandler.hookAddress is not None:
-                        info.insert(2, f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:08X}')
-            
+                            f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} are now being used']
                 else:
-                    info = [f'  :: Game function "__init_registers()" located at address 0x{dolFile.entryPoint:X}',
-                            f'  :: Code allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                    info = [f'  :: Game function "__init_registers()" located at address 0x{oldStart:X}',
+                            f'  :: Allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                            f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}',
                             f'  :: Codehandler is of type "{codeHandler.type}"',
-                            f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} were already used']
-                    if codeHandler.hookAddress is not None:
-                        info.insert(1, f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:08X}')
+                            f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} are now being used']
                 for bit in info:
                     print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
         
             elif self.verbosity >= 1:
                 print('')
-                if legacy == False:
-                    info = [f'  :: GeckoLoader set at address 0x{self.initAddress:X}',
-                            f'  :: Codehandler is of type "{codeHandler.type}"',
-                            f'  :: Code allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}']
-                else:
-                    info = [f'  :: Codehandler is of type "{codeHandler.type}"',
-                            f'  :: Code allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}']
-
+                info = [f'  :: GeckoLoader set at address 0x{self.initAddress:X}',
+                        f'  :: Legacy size is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                        f'  :: Codehandler is of type "{codeHandler.type}"']
                 for bit in info:
                     print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
 
@@ -580,30 +579,50 @@ def resource_path(relative_path: str):
     base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
-def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler):
+def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
     if codeHandler.hookAddress == None:
-        return assert_code_hook(dolFile, codeHandler)
-    else:
-        return insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
+        if not assert_code_hook(dolFile, codeHandler):
+            return False
+    
+    if hook:
+        insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
+    return True
 
 
-def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
-    for _, address, size in dolFile.textSections:
+def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
+    for _, address, size, _, in dolFile.textSections:
         dolFile.seek(address, 0)
         sample = dolFile.read(size)
 
-        result = sample.find(codeHandler.gcnVIHook)
+        if codeHandler.hookType == 'VI':
+            result = sample.find(codeHandler.gcnVIHook)
+        elif codeHandler.hookType == 'GX':
+            result = sample.find(codeHandler.gcnGXDrawHook)
+        elif codeHandler.hookType == 'PAD':
+            result = sample.find(codeHandler.gcnPADHook)
+        else:
+            raise NotImplementedError(f'Unsupported hook type specified ({codeHandler.hookType})')
+
         if result >= 0:
             dolFile.seek(address, 0)
             dolFile.seek(result, 1)
         else:
-            result = sample.find(codeHandler.wiiVIHook)
+            if codeHandler.hookType == 'VI':
+                result = sample.find(codeHandler.wiiVIHook)
+            elif codeHandler.hookType == 'GX':
+                result = sample.find(codeHandler.wiiGXDrawHook)
+            elif codeHandler.hookType == 'PAD':
+                result = sample.find(codeHandler.wiiPADHook)
+            else:
+                raise NotImplementedError(f'Unsupported hook type specified ({codeHandler.hookType})')
+
             if result >= 0:
                 dolFile.seek(address, 0)
                 dolFile.seek(result, 1)
             else:
                 continue
 
+        print(f'{dolFile._currLogicAddr:X}, {address:X}, {result:X}')
         sample = tools.read_uint32(dolFile)
         while sample != 0x4E800020:
             sample = tools.read_uint32(dolFile)
@@ -611,15 +630,10 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
         dolFile.seek(-4, 1)
         codeHandler.hookAddress = dolFile.tell()
 
-        return insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
-    return False, 'Failed to find a hook address. Try using option --codehook to use your own address\n'
+        if hook: insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
+        return True
+    return False
 
 def insert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, address: int):
     dolFile.seek(address)
-
-    if tools.read_uint32(dolFile) != 0x4E800020:
-        return False, 'Codehandler hook given is not a blr\n'
-
-    dolFile.seek(-4, 1)
     dolFile.insert_branch(codeHandler.startAddress, address, lk=0)
-    return True, ''
