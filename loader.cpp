@@ -289,7 +289,7 @@ namespace Memory {
 
       for (u32 i = 0; i < size; ++i) {
         dest[i] = buffer[i] ^ key;
-        key += i ^ key;
+        key += i << 3;
       }
     }
   };

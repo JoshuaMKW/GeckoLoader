@@ -258,7 +258,7 @@ class CodeHandler:
                 packet = tools.read_uint32(self.geckoCodes.codeList)
                 self.geckoCodes.codeList.seek(-4, 1)
                 tools.write_uint32(self.geckoCodes.codeList, (packet^key) & 0xFFFFFFFF)
-                key += (i ^ key) & 0xFFFFFFFF
+                key += (i << 3) & 0xFFFFFFFF
                 if key > 0xFFFFFFFF:
                     key -= 0x100000000
                 i += 1
