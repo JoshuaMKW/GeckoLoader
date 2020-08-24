@@ -245,13 +245,11 @@ class CodeHandler:
 
     def encrypt_data(self, key: int):
         self.geckoCodes.codeList.seek(0)
-        print(f'real key: {key:X}')
         i = 0
         while True:
             try:
                 packet = tools.read_uint32(self.geckoCodes.codeList)
                 self.geckoCodes.codeList.seek(-4, 1)
-                #print(hex(self.geckoCodes.codeList.tell()), hex(packet), hex((packet^key) & 0xFFFFFFFF), hex(key))
                 tools.write_uint32(self.geckoCodes.codeList, (packet^key) & 0xFFFFFFFF)
                 key += (i ^ key) & 0xFFFFFFFF
                 if key > 0xFFFFFFFF:
