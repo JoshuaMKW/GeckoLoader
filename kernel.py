@@ -589,7 +589,7 @@ def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
     return True
 
 
-def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
+def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
     for _, address, size, _, in dolFile.textSections:
         dolFile.seek(address, 0)
         sample = dolFile.read(size)
@@ -622,7 +622,6 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
             else:
                 continue
 
-        print(f'{dolFile._currLogicAddr:X}, {address:X}, {result:X}')
         sample = tools.read_uint32(dolFile)
         while sample != 0x4E800020:
             sample = tools.read_uint32(dolFile)
@@ -630,7 +629,6 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
         dolFile.seek(-4, 1)
         codeHandler.hookAddress = dolFile.tell()
 
-        if hook: insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
         return True
     return False
 
