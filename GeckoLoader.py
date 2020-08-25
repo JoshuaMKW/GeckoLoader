@@ -62,7 +62,7 @@ if __name__ == "__main__":
                         help='Define the size of the code allocation in hex, only applies when using the ARENA space',
                         metavar ='SIZE')
     parser.add_argument('-i', '--init',
-                        help='Define where GeckoLoader is injected in hex',
+                        help='Define where GeckoLoader is initialized in hex',
                         metavar='ADDRESS')
     parser.add_argument('-m', '--movecodes',
                         help='''["AUTO", "LEGACY", "ARENA"] Choose if GeckoLoader moves the codes to OSArenaHi,
@@ -94,7 +94,7 @@ if __name__ == "__main__":
                         choices=['VI', 'GX', 'PAD'],
                         metavar='HOOK')
     parser.add_argument('--hookaddress',
-                        help='Choose where the codehandler hooks to, overrides auto hooks',
+                        help='Choose where the codehandler hooks to in hex, overrides auto hooks',
                         metavar='ADDRESS')
     parser.add_argument('-o', '--optimize',
                         help='''Optimizes the codelist by directly patching qualifying
