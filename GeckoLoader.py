@@ -12,9 +12,6 @@ from kernel import CodeHandler, KernelLoader
 from tools import CommandLineParser, color_text
 from versioncheck import Updater
 
-#sys.path.extend([os.path.join(os.path.dirname(__file__), 'imports')])
-
-
 try:
     import colorama
     from colorama import Fore, Style
@@ -65,10 +62,10 @@ if __name__ == "__main__":
                         help='Define the size of the code allocation in hex, only applies when using the ARENA space',
                         metavar ='SIZE')
     parser.add_argument('-i', '--init',
-                        help='Define where geckoloader is injected in hex',
+                        help='Define where GeckoLoader is injected in hex',
                         metavar='ADDRESS')
     parser.add_argument('-m', '--movecodes',
-                        help='''["AUTO", "LEGACY", "ARENA"] Choose if geckoloader moves the codes to OSArenaHi,
+                        help='''["AUTO", "LEGACY", "ARENA"] Choose if GeckoLoader moves the codes to OSArenaHi,
                         or the legacy space. Default is "AUTO",
                         which auto decides where to insert the codes''',
                         default='AUTO',
@@ -82,10 +79,10 @@ if __name__ == "__main__":
                         default='ACTIVE',
                         metavar='TYPE')
     parser.add_argument('--handler',
-                        help='''["MINI", "FULL"] Which codeHandler gets used. "MINI" uses a smaller codeHandler
+                        help='''["MINI", "FULL"] Which codehandler gets used. "MINI" uses a smaller codehandler
                         which only supports (0x, 2x, Cx, and E0 types) and supports up to
                         600 lines of gecko codes when using the legacy codespace.
-                        "FULL" is the standard codeHandler, supporting up to 350 lines of code
+                        "FULL" is the standard codehandler, supporting up to 350 lines of code
                         in the legacy codespace. "FULL" is the default''',
                         default='FULL',
                         choices=['MINI', 'FULL'],
@@ -97,15 +94,15 @@ if __name__ == "__main__":
                         choices=['VI', 'GX', 'PAD'],
                         metavar='HOOK')
     parser.add_argument('--hookaddress',
-                        help='Choose where the codeHandler hooks to, overrides auto hooks',
+                        help='Choose where the codehandler hooks to, overrides auto hooks',
                         metavar='ADDRESS')
     parser.add_argument('-o', '--optimize',
                         help='''Optimizes the codelist by directly patching qualifying
                         ram writes into the dol file, and removing them from the codelist''',
                         action='store_true')
     parser.add_argument('-p', '--protect',
-                        help='''Targets and nullifies the standard codeHandler provided by loaders and Dolphin Emulator,
-                        only applies when the ARENA is used (Can be forced using option (-m|--movecodes))''',
+                        help='''Targets and nullifies the standard codehandler provided by loaders and Dolphin Emulator,
+                        only applies when the ARENA is used''',
                         action='store_true')
     parser.add_argument('--dest',
                         help='Target path to put the modified DOL, can be a folder or file',
@@ -191,12 +188,12 @@ if __name__ == "__main__":
 
     if args.hookaddress:
         if 0x80000000 > int(args.hookaddress, 16) >= 0x81800000:
-            parser.error(color_text('The codeHandler hook address was beyond bounds\n', defaultColor=TREDLIT))
+            parser.error(color_text('The codehandler hook address was beyond bounds\n', defaultColor=TREDLIT))
         else:
             try:
                 _codehook = int(args.hookaddress, 16)
             except ValueError:
-                parser.error(color_text('The codeHandler hook address was invalid\n', defaultColor=TREDLIT))
+                parser.error(color_text('The codehandler hook address was invalid\n', defaultColor=TREDLIT))
     else:
         _codehook = None
 

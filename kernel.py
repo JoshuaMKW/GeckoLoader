@@ -53,6 +53,7 @@ class GCT:
         codelist = b''
         codetype = b'temp'
         skipcodes = 0
+        
         while codetype:
             codetype = self.codeList.read(4)
             info = self.codeList.read(4)
