@@ -251,8 +251,20 @@ otherwise it returns None'''
 
         return True
 
-    def insert_branch(self, to, _from, lk=0):
-        tools.write_uint32(self, (to - _from) & 0x3FFFFFF | 0x48000000 | lk)
+    def insert_branch(self, to: int, _from: int, lk=0):
+        self.seek(_from)
+        tools.write_uint32(self, (to - _from) & 0x3FFFFFD | 0x48000000 | lk)
+
+    def extract_branch_addr(self, bAddr: int):
+        self.seek(bAddr)
+        ppc = tools.read_uint32(self)
+
+        if (ppc & 0x2000000):
+            offset = (ppc & 0x3FFFFFD) - 0x4000000
+        else:
+            offset = ppc & 0x3FFFFFD
+
+        return bAddr + offset
 
 if __name__ == "__main__":
     # Example usage (reading some enemy info from the Pikmin 2 demo from US demo disc 17)

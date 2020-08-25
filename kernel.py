@@ -265,6 +265,42 @@ class CodeHandler:
             except:
                 break
 
+    def find_variable_data(self):
+        self._rawData.seek(0)
+        sample = self._rawData.read(4)
+
+        if sample == b'\x00\xDE\xDE\xDE':
+            return self._rawData.tell() - 4
+
+        while sample:
+            if sample == b'\x00\xDE\xDE\xDE':
+                return self._rawData.tell() - 4
+            sample = self._rawData.read(4)
+        
+        return None
+
+    def set_hook_instruction(self, dolFile: DolFile, address: int, varOffset: int, lk=0):
+        self._rawData.seek(varOffset)
+        dolFile.seek(address)
+        ppc = tools.read_uint32(dolFile)
+
+        if (((ppc >> 24) & 0xFF) > 0x47 and ((ppc >> 24) & 0xFF) < 0x4C):
+            to = dolFile.extract_branch_addr(address)
+            print(f'{to:X}, {self.initAddress:X}, {varOffset:X}, {address:X}')
+            tools.write_uint32(self._rawData, (to - (self.initAddress + varOffset)) & 0x3FFFFFD | 0x48000000 | lk)
+        else:
+            tools.write_uint32(self._rawData, ppc)
+
+    def set_variables(self, dolFile: DolFile):
+        varOffset = self.find_variable_data()
+        if varOffset is None:
+            raise RuntimeError(tools.color_text("Variable codehandler data not found", defaultColor=tools.TREDLIT))
+
+        self.set_hook_instruction(dolFile, self.hookAddress, varOffset, 0)
+
+        self._rawData.seek(varOffset + 4)
+        tools.write_uint32(self._rawData, ((self.hookAddress + 4) - (self.initAddress + (varOffset + 4))) & 0x3FFFFFD | 0x48000000 | 0)
+
 class KernelLoader:
 
     def __init__(self, f):
@@ -516,6 +552,7 @@ class KernelLoader:
 
             if self.codeLocation == 'LEGACY':
                 codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
+                codeHandler.set_variables(dolFile)
                 hooked = determine_codehook(dolFile, codeHandler, True)
                 status = self.patch_legacy(codeHandler, dolFile)
                 legacy = True
@@ -601,7 +638,7 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
         elif codeHandler.hookType == 'PAD':
             result = sample.find(codeHandler.gcnPADHook)
         else:
-            raise NotImplementedError(f'Unsupported hook type specified ({codeHandler.hookType})')
+            raise NotImplementedError(tools.color_text(f'Unsupported hook type specified ({codeHandler.hookType})', defaultColor=tools.TREDLIT))
 
         if result >= 0:
             dolFile.seek(address, 0)
@@ -614,7 +651,7 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
             elif codeHandler.hookType == 'PAD':
                 result = sample.find(codeHandler.wiiPADHook)
             else:
-                raise NotImplementedError(f'Unsupported hook type specified ({codeHandler.hookType})')
+                raise NotImplementedError(tools.color_text(f'Unsupported hook type specified ({codeHandler.hookType})', defaultColor=tools.TREDLIT))
 
             if result >= 0:
                 dolFile.seek(address, 0)
@@ -634,4 +671,10 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
 
 def insert_code_hook(dolFile: DolFile, codeHandler: CodeHandler, address: int):
     dolFile.seek(address)
+    ppc = tools.read_uint32(dolFile)
+
+    if ((ppc >> 24) & 0xFF) > 0x3F and ((ppc >> 24) & 0xFF) < 0x48:
+        raise NotImplementedError(tools.color_text("Hooking the codehandler to a conditional non spr branch is unsupported", defaultColor=tools.TREDLIT))
+
+    dolFile.seek(-4, 1)
     dolFile.insert_branch(codeHandler.startAddress, address, lk=0)

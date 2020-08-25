@@ -21,6 +21,8 @@
 #define CODEHANDLER 0x800018A8
 #define GCT_MAGIC 0x00D0C0DE
 
+#define __start call(0x4948494C)
+
 using u32 = unsigned int;
 using u16 = unsigned short;
 using u8 = unsigned char;
@@ -161,6 +163,15 @@ Info gpModInfo = {
   0x43525054,
 };
 
+inline u32 extractBranchAddr(u32* bAddr) {
+  s32 offset;
+  if (*bAddr & 0x2000000)
+    offset = (*bAddr & 0x3FFFFFD) - 0x4000000;
+  else
+    offset = *bAddr & 0x3FFFFFD;
+  return (u32)bAddr + offset;
+}
+
 namespace Memory {
 
   static void memcpy(u8* to, u8* from, s32 size)
@@ -229,10 +240,10 @@ namespace Memory {
     }
 
     template <typename T>
-    static T* single(T* start, T* end, T hookData)
+    static T* single(T* start, T* end, T match)
     {
       for (u32 i = 0; &start[i] < end; ++i) {
-        if (start[i] == hookData) {
+        if (start[i] == match) {
           return &start[i];
         }
       }
@@ -285,7 +296,7 @@ namespace Memory {
 
     inline void xorCrypt(u32* dest, u32* buffer, u32 size)
     {
-      u32 key = this->getKey();
+      auto key = this->getKey();
 
       for (u32 i = 0; i < size; ++i) {
         dest[i] = buffer[i] ^ key;
@@ -300,7 +311,7 @@ namespace Memory {
 
 Memory::Crypt gpCryptor = { 0x43595054 };
 
-static bool initMods()
+static void initMods()
 {
   sDisc.setHeap(gpModInfo.allocsize); /*Reallocate the internal heap*/
 
@@ -308,9 +319,6 @@ static bool initMods()
   CodeList* codelistPointer = (CodeList*)((u32)&gpModInfo + sizeof(Info) + 0xFC);
   codelistPointer->mUpperBase = (((u32)sDisc.sMetaData.mOSArenaHi + gpModInfo.handlerSize) >> 16) & 0xFFFF;
   codelistPointer->mLowerOffset = ((u32)sDisc.sMetaData.mOSArenaHi + gpModInfo.handlerSize) & 0xFFFF;
-
-  /*Update the cache, so that the instructions fully update*/
-  Memory::Cache::flushAddr(&codelistPointer->mBaseASM);
 
   /*Copy codelist to the new allocation*/
   if (gpModInfo.crypted) {
@@ -321,16 +329,40 @@ static bool initMods()
     Memory::memcpy(sDisc.sMetaData.mOSArenaHi, (u8*)&gpModInfo + sizeof(Info) + 4, gpModInfo.handlerSize + gpModInfo.codeSize);
   }
 
-  Memory::Direct::branch((void*)gpModInfo.codehandlerHook, (void*)((u32)sDisc.sMetaData.mOSArenaHi + 0xA8), false);
+  /*Get codehandler hook resources*/
+  auto fillInField = Memory::Search::single<u32>((u32*)sDisc.sMetaData.mOSArenaHi, (u32*)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x00DEDEDE);
+  auto returnAddress = extractBranchAddr((u32*)gpModInfo.codehandlerHook);
+  auto ppc = *gpModInfo.codehandlerHook;
 
+  
+  /*Write hook branch*/
+  Memory::Direct::branch((void*)gpModInfo.codehandlerHook, (void*)((u32)sDisc.sMetaData.mOSArenaHi + 0xA8), false); //entryhook
+
+  /*Temporary nop*/
+  *fillInField = 0x60000000;
+  
+  /*Flush the cache so that the instructions update*/
   Memory::Cache::flushRange((u8*)sDisc.sMetaData.mOSArenaHi, gpModInfo.handlerSize + gpModInfo.codeSize);
-  return true;
+
+  /*Call the codehandler*/
+  call((void*)((u32)(sDisc.sMetaData.mOSArenaHi) + 0xA8))();
+
+  /*Write original instruction or translate offset data if a branch*/
+  if (((ppc >> 24) & 0xFF) > 0x47 && ((ppc >> 24) & 0xFF) < 0x4C) {
+    Memory::Direct::branch((void*)fillInField, (void*)returnAddress, ppc & 1);
+  } else {
+    Memory::Direct::write(fillInField, *gpModInfo.codehandlerHook);
+  }
+
+  /*Write branch back to the hook address + 4*/
+  Memory::Direct::branch((void*)&fillInField[1], (void*)(&gpModInfo.codehandlerHook[1]), false); //return
+
 }
 
 int main()
 {
-  if ((sDisc.detectHomeConsole() != DiscHeader::CONSOLETYPE::Unknown) && initMods() == true)
-    call((void*)((u32)(sDisc.sMetaData.mOSArenaHi) + 0xA8))(); /*Call the codehandler if successful*/
-
-  call(0x4948494C)(); /*Call the game start*/
+  if (sDisc.detectHomeConsole() != DiscHeader::CONSOLETYPE::Unknown) {
+    initMods();
+  }
+  __start();
 }
