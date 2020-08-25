@@ -36,7 +36,7 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-__version__ = 'v5.3.0'
+__version__ = 'v6.0.0'
 
 def resource_path(relative_path: str):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -68,31 +68,31 @@ if __name__ == "__main__":
                         help='Define where geckoloader is injected in hex',
                         metavar='ADDRESS')
     parser.add_argument('-m', '--movecodes',
-                        help='''Choose if geckoloader moves the codes to OSArenaHi,
+                        help='''["AUTO", "LEGACY", "ARENA"] Choose if geckoloader moves the codes to OSArenaHi,
                         or the legacy space. Default is "AUTO",
                         which auto decides where to insert the codes''',
                         default='AUTO',
                         choices=['AUTO', 'LEGACY', 'ARENA'],
                         metavar='TYPE')
     parser.add_argument('-tc', '--txtcodes',
-                        help='''What codes get parsed when a txt file is used.
+                        help='''["ACTIVE", "ALL"] What codes get parsed when a txt file is used.
                         "ALL" makes all codes get parsed,
-                        "ACTIVE" makes only activated codes get parsed.''',
-                        default='active',
+                        "ACTIVE" makes only activated codes get parsed.
+                        "ACTIVE" is the default''',
+                        default='ACTIVE',
                         metavar='TYPE')
     parser.add_argument('--handler',
-                        help='''Which codeHandler gets used. "MINI" uses a smaller codeHandler
+                        help='''["MINI", "FULL"] Which codeHandler gets used. "MINI" uses a smaller codeHandler
                         which only supports (0x, 2x, Cx, and E0 types) and supports up to
                         600 lines of gecko codes when using the legacy codespace.
                         "FULL" is the standard codeHandler, supporting up to 350 lines of code
-                        in the legacy codespace.
-                        "MINI" should only be considered if using the legacy codespace''',
+                        in the legacy codespace. "FULL" is the default''',
                         default='FULL',
                         choices=['MINI', 'FULL'],
                         metavar='TYPE')
     parser.add_argument('--hooktype',
-                        help='''The type of hook used for the RAM search. VI or GX are recommended,
-                        although PAD can work just as well. VI is the default hook used''',
+                        help='''["VI", "GX", "PAD"] The type of hook used for the RAM search. "VI" or "GX" are recommended,
+                        although "PAD" can work just as well. "VI" is the default''',
                         default='VI',
                         choices=['VI', 'GX', 'PAD'],
                         metavar='HOOK')
@@ -127,14 +127,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) == 1:
         version = __version__.rjust(9, ' ')
-
-        if os.path.normpath(os.path.join(os.path.expanduser('~'), "AppData", "Roaming")) in os.path.dirname(__file__):
-            helpMessage = 'Try the command: GeckoLoader -h'.center(64, ' ')
-        else:
-            if os.path.splitext(__file__)[1].lower() == ".py":
-                helpMessage = 'Try the command: python GeckoLoader.py -h'.center(64, ' ')
-            else:
-                helpMessage = 'Try the command: .\GeckoLoader.exe -h'.center(64, ' ')
+        helpMessage = 'Try option -h for more info on this program'.center(64, ' ')
 
         logo = ['                                                                ',
                 ' ╔═══════════════════════════════════════════════════════════╗  ',
@@ -229,7 +222,7 @@ if __name__ == "__main__":
             codeHandler.allocation = _allocation
             codeHandler.hookAddress = _codehook
             codeHandler.hookType = args.hooktype
-            codeHandler.includeAll = args.txtcodes
+            codeHandler.includeAll = (args.txtcodes.lower() == 'all')
 
         with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as kernelfile:
             geckoKernel = KernelLoader(kernelfile)

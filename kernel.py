@@ -204,7 +204,7 @@ class CodeHandler:
 
         f.seek(0)
 
-    def gecko_parser(self, geckoText, parseAll=False):
+    def gecko_parser(self, geckoText):
         with open(r'{}'.format(geckoText), 'rb') as gecko:
             result = chardet.detect(gecko.read())
             encodeType = result['encoding']
@@ -225,10 +225,8 @@ class CodeHandler:
                 
                 try:
                     if state == 'OcarinaM':
-                        if parseAll.lower() == 'all':
+                        if self.includeAll:
                             geckoLine = re.findall(r'[A-F0-9]{8}[\t\f ][A-F0-9]{8}', line, re.IGNORECASE)[0]
-                        elif parseAll.lower() == 'active':
-                            geckoLine = re.findall(r'(?:\*\s*)([A-F0-9]{8}[\t\f ][A-F0-9]{8})', line, re.IGNORECASE)[0]
                         else:
                             geckoLine = re.findall(r'(?:\*\s*)([A-F0-9]{8}[\t\f ][A-F0-9]{8})', line, re.IGNORECASE)[0]
                     else:
@@ -488,7 +486,7 @@ class KernelLoader:
             if '.' in gctFile:
                 if os.path.splitext(gctFile)[1].lower() == '.txt':
                     with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
-                        temp.write(bytes.fromhex('00D0C0DE'*2 + codeHandler.gecko_parser(gctFile, codeHandler.includeAll) + 'F000000000000000'))
+                        temp.write(bytes.fromhex('00D0C0DE'*2 + codeHandler.gecko_parser(gctFile) + 'F000000000000000'))
                         temp.seek(0)
                         codeHandler.geckoCodes = GCT(temp)
                     foundData = True
@@ -504,7 +502,7 @@ class KernelLoader:
                     for file in os.listdir(gctFile):
                         if os.path.isfile(os.path.join(gctFile, file)):
                             if os.path.splitext(file)[1].lower() == '.txt':
-                                temp.write(bytes.fromhex(codeHandler.gecko_parser(os.path.join(gctFile, file), codeHandler.includeAll)))  
+                                temp.write(bytes.fromhex(codeHandler.gecko_parser(os.path.join(gctFile, file))))  
                                 foundData = True
                             elif os.path.splitext(file)[1].lower() == '.gct':
                                 with open(os.path.join(gctFile, file), 'rb') as gct:

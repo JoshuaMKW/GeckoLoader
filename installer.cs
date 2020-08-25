@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Xml.Serialization;
 
 public class Program
 {
@@ -22,6 +23,38 @@ public class Installer
         programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GeckoLoader");
         copyfiles = true;
         overwrite = true;
+    }
+
+    void CopyAll (DirectoryInfo source, DirectoryInfo destination, string wildcard, string[] exclude, int maxdepth = 16)
+    {
+        if (maxdepth <= 0) return;
+
+        DirectoryInfo[] subdirs = source.GetDirectories();
+
+        foreach (DirectoryInfo dirPath in source.EnumerateDirectories())
+            Directory.CreateDirectory(dirPath.FullName.Replace(source.FullName, destination.FullName));
+
+        foreach (FileInfo filePath in source.EnumerateFiles(wildcard))
+        {
+            bool include = true;
+            foreach (string exc in exclude)
+            {
+                if (exc.ToLower().Contains(filePath.Name.ToLower()))
+                {
+                    include = false;
+                    break;
+                }
+            }
+            if (include) File.Copy(filePath.FullName, filePath.FullName.Replace(source.FullName, destination.FullName), true);
+        }
+
+        foreach (DirectoryInfo dir in subdirs)
+        {
+            DirectoryInfo dest = new DirectoryInfo(Path.Combine(destination.FullName, dir.Name));
+            DirectoryInfo src = new DirectoryInfo(dir.FullName);
+
+            CopyAll(src, dest, wildcard, exclude, maxdepth - 1);
+        }
     }
 
     private static void ClearConsoleLine(int index, bool moveto)
@@ -104,9 +137,10 @@ public class Installer
                 dir.Delete(true);
             }
 
+            //Copy top level files
             foreach (FileInfo file in cwd.EnumerateFiles(wildcard, SearchOption.TopDirectoryOnly))
             {
-                string ext = ".exe.py.bin";
+                string ext = ".exe.py.bin.dll";
 
                 if (ext.Contains(file.Extension.ToLower()))
                 {
@@ -115,17 +149,9 @@ public class Installer
                     file.CopyTo(Path.Combine(programspace.FullName, file.Name), true);
                 }
             }
-            foreach (DirectoryInfo dir in cwd.EnumerateDirectories())
-            {
-                if (!Directory.Exists(Path.Combine(programspace.FullName, dir.Name)))
-                {
-                    Directory.CreateDirectory(Path.Combine(programspace.FullName, dir.Name));
-                }
-                foreach (FileInfo subfile in dir.EnumerateFiles(wildcard, SearchOption.TopDirectoryOnly))
-                {
-                    subfile.CopyTo(Path.Combine(programspace.FullName, dir.Name, subfile.Name), true);
-                }
-            }
+            //Copy dependancies
+            string[] exclude = { "installer.exe" };
+            this.CopyAll(cwd, programspace, wildcard, exclude);
         }
         catch (UnauthorizedAccessException e)
         {
