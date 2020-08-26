@@ -28,7 +28,6 @@ public class Installer
 
     void CopyAll (DirectoryInfo source, DirectoryInfo destination, string wildcard, string[] exclude, int maxdepth = 4)
     {
-        Console.WriteLine("{0}, {1}", source.FullName, destination.FullName);
         if (maxdepth <= 0) return;
 
         DirectoryInfo[] subdirs = source.GetDirectories();
