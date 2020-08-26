@@ -90,13 +90,11 @@ public class Installer
 
     private void SetProgramFolder(string folderName)
     {
-        this.programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), folderName);
+        this.programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GeckoLoader", "bin");
     }
 
     private void SetProgramFolderToPath()
     {
-        if (!Directory.Exists(this.programfolder)) Directory.CreateDirectory(this.programfolder);
-
         var scope = EnvironmentVariableTarget.User;
         var curPATH = Environment.GetEnvironmentVariable("PATH", scope);
 
@@ -121,10 +119,10 @@ public class Installer
 
     private bool MoveFilesToprogramfolder(string wildcard, bool copy = true, bool overwrite = false)
     {
-        DirectoryInfo cwd = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory()));
+        DirectoryInfo cwd = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "bin"));
         DirectoryInfo programspace = new DirectoryInfo(this.programfolder);
 
-        bool validinstall = false;
+        if (!programspace.Exists) programspace.Create();
 
         try
         {
@@ -137,18 +135,6 @@ public class Installer
                 dir.Delete(true);
             }
 
-            //Copy top level files
-            foreach (FileInfo file in cwd.EnumerateFiles(wildcard, SearchOption.TopDirectoryOnly))
-            {
-                string ext = ".exe.py.bin.dll";
-
-                if (ext.Contains(file.Extension.ToLower()))
-                {
-                    if (file.Extension.ToLower() == ".exe" && file.Name != "GeckoLoader.exe") continue;
-                    if (file.Name.ToLower() == "geckoloader.py" || file.Name.ToLower() == "geckoloader.exe") validinstall = true;
-                    file.CopyTo(Path.Combine(programspace.FullName, file.Name), true);
-                }
-            }
             //Copy dependancies
             string[] exclude = { "installer.exe" };
             this.CopyAll(cwd, programspace, wildcard, exclude);
@@ -159,7 +145,7 @@ public class Installer
             return false;
         }
 
-        return validinstall;
+        return true;
     }
 
     private void DeleteProgramFolder()
