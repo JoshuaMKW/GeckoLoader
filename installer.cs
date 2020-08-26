@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
@@ -25,27 +26,22 @@ public class Installer
         overwrite = true;
     }
 
-    void CopyAll (DirectoryInfo source, DirectoryInfo destination, string wildcard, string[] exclude, int maxdepth = 16)
+    void CopyAll (DirectoryInfo source, DirectoryInfo destination, string wildcard, string[] exclude, int maxdepth = 4)
     {
+        Console.WriteLine("{0}, {1}", source.FullName, destination.FullName);
         if (maxdepth <= 0) return;
 
         DirectoryInfo[] subdirs = source.GetDirectories();
 
         foreach (DirectoryInfo dirPath in source.EnumerateDirectories())
+        {
             Directory.CreateDirectory(dirPath.FullName.Replace(source.FullName, destination.FullName));
+        }
+            
 
         foreach (FileInfo filePath in source.EnumerateFiles(wildcard))
         {
-            bool include = true;
-            foreach (string exc in exclude)
-            {
-                if (exc.ToLower().Contains(filePath.Name.ToLower()))
-                {
-                    include = false;
-                    break;
-                }
-            }
-            if (include) File.Copy(filePath.FullName, filePath.FullName.Replace(source.FullName, destination.FullName), true);
+            File.Copy(filePath.FullName, filePath.FullName.Replace(source.FullName, destination.FullName), true);
         }
 
         foreach (DirectoryInfo dir in subdirs)
@@ -90,31 +86,38 @@ public class Installer
 
     private void SetProgramFolder(string folderName)
     {
-        this.programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GeckoLoader", "data");
+        this.programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GeckoLoader");
     }
 
-    private void SetProgramFolderToPath()
+    private void SetFolderToPath(string dir, string subdir)
     {
         var scope = EnvironmentVariableTarget.User;
         var curPATH = Environment.GetEnvironmentVariable("PATH", scope);
 
-        if (!curPATH.Contains(this.programfolder))
+        if (!curPATH.Contains(Path.Combine(dir, subdir)))
         {
-            var newValue = curPATH + ";" + this.programfolder;
-            Environment.SetEnvironmentVariable("PATH", newValue, scope);
+            var newValue = curPATH + ";" + Path.Combine(dir, subdir);
+            Environment.SetEnvironmentVariable("PATH", newValue.Replace(";;", ";"), scope);
         }
     }
 
-    private void RemoveProgramFolderFromPath()
+    private void RemoveFolderGroupFromPath(string dir)
     {
         var scope = EnvironmentVariableTarget.User;
         var curPATH = Environment.GetEnvironmentVariable("PATH", scope);
 
-        if (curPATH.Contains(this.programfolder))
+        string[] oldPATHList = curPATH.Split(';');
+        List<string> newPATHList = new List<string>();
+
+        foreach(string path in oldPATHList)
         {
-            var newValue = curPATH.Replace(";" + this.programfolder, "");
-            Environment.SetEnvironmentVariable("PATH", newValue, scope);
+            if (!path.ToLower().Contains(dir.ToLower()))
+            {
+                newPATHList.Add(path);
+            }
         }
+        Environment.SetEnvironmentVariable("PATH", String.Join(";", newPATHList.ToArray()), scope);
+
     }
 
     private bool MoveFilesToprogramfolder(string wildcard, bool copy = true, bool overwrite = false)
@@ -172,10 +175,11 @@ public class Installer
             status = HandleConsoleQuestion("What do you want to do?", actionoptions);
             if (status.ToLower() == (string)actionoptions.GetValue(0))
             {
-                this.SetProgramFolderToPath();
+                this.RemoveFolderGroupFromPath(this.programfolder);
+                this.SetFolderToPath(this.programfolder, "");
                 if (this.MoveFilesToprogramfolder("*", this.copyfiles, this.overwrite) == false)
                 {
-                    Console.WriteLine("Failed to install :( Is Geckoloader and its dependancies in the same directory?");
+                    Console.WriteLine("Failed to install :(");
                 }
                 else
                 {
@@ -184,7 +188,7 @@ public class Installer
             }
             else
             {
-                this.RemoveProgramFolderFromPath();
+                this.RemoveFolderGroupFromPath(this.programfolder);
                 this.DeleteProgramFolder();
                 Console.WriteLine("Uninstalled successfully!");
             }
