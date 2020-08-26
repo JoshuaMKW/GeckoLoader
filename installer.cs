@@ -90,7 +90,7 @@ public class Installer
 
     private void SetProgramFolder(string folderName)
     {
-        this.programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GeckoLoader", "bin");
+        this.programfolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GeckoLoader", "data");
     }
 
     private void SetProgramFolderToPath()
@@ -119,7 +119,7 @@ public class Installer
 
     private bool MoveFilesToprogramfolder(string wildcard, bool copy = true, bool overwrite = false)
     {
-        DirectoryInfo cwd = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "bin"));
+        DirectoryInfo cwd = new DirectoryInfo(Path.Combine(Directory.GetCurrentDirectory(), "data"));
         DirectoryInfo programspace = new DirectoryInfo(this.programfolder);
 
         if (!programspace.Exists) programspace.Create();
