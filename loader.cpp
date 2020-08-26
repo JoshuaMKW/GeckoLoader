@@ -351,7 +351,7 @@ static void initMods()
   if (((ppc >> 24) & 0xFF) > 0x47 && ((ppc >> 24) & 0xFF) < 0x4C) {
     Memory::Direct::branch((void*)fillInField, (void*)returnAddress, ppc & 1);
   } else {
-    Memory::Direct::write(fillInField, *gpModInfo.codehandlerHook);
+    Memory::Direct::write(fillInField, ppc);
   }
 
   /*Write branch back to the hook address + 4*/
