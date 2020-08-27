@@ -53,7 +53,7 @@ class GCT:
         codelist = b''
         codetype = b'temp'
         skipcodes = 0
-        
+
         while codetype:
             codetype = self.codeList.read(4)
             info = self.codeList.read(4)
@@ -268,11 +268,11 @@ class CodeHandler:
         self._rawData.seek(0)
         sample = self._rawData.read(4)
 
-        if sample == b'\x00\xDE\xDE\xDE':
+        if sample == b'\x60\x00\x00\x00':
             return self._rawData.tell() - 4
 
         while sample:
-            if sample == b'\x00\xDE\xDE\xDE':
+            if sample == b'\x60\x00\x00\x00':
                 return self._rawData.tell() - 4
             sample = self._rawData.read(4)
         

@@ -198,6 +198,21 @@ namespace Memory {
       }
     }
 
+    static void storeAddr(void* addr)
+    {
+      dcbst(addr);
+      icbi(addr);
+    }
+
+    static void storeRange(u8* addr, s32 size)
+    {
+      size += 31 + (((u32)addr & 31) > 0);
+
+      for (u32 i = 0; i < (size >> 5); ++i) {
+        storeAddr((void*)(addr + (i << 5)));
+      }
+    }
+
   }
 
   namespace Direct {
@@ -330,7 +345,7 @@ static void initMods()
   }
 
   /*Get codehandler hook resources*/
-  auto fillInField = Memory::Search::single<u32>((u32*)sDisc.sMetaData.mOSArenaHi, (u32*)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x00DEDEDE);
+  auto fillInField = Memory::Search::single<u32>((u32*)sDisc.sMetaData.mOSArenaHi, (u32*)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x60000000);
   auto returnAddress = extractBranchAddr((u32*)gpModInfo.codehandlerHook);
   auto ppc = *gpModInfo.codehandlerHook;
 
