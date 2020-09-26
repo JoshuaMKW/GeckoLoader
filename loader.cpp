@@ -345,7 +345,7 @@ static void initMods()
   }
 
   /*Get codehandler hook resources*/
-  auto fillInField = Memory::Search::single<u32>((u32*)sDisc.sMetaData.mOSArenaHi, (u32*)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x60000000);
+  auto fillInField = Memory::Search::single<u32>((u32*)sDisc.sMetaData.mOSArenaHi, (u32*)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x00DEDEDE);
   auto returnAddress = extractBranchAddr((u32*)gpModInfo.codehandlerHook);
   auto ppc = *gpModInfo.codehandlerHook;
 

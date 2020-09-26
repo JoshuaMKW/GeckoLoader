@@ -10,6 +10,7 @@ from distutils.version import LooseVersion
 from dolreader import DolFile
 from kernel import CodeHandler, KernelLoader
 from tools import CommandLineParser, color_text
+from fileutils import GC_File
 from versioncheck import Updater
 
 try:
@@ -33,7 +34,7 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-__version__ = 'v6.0.1'
+__version__ = 'v6.1.0'
 
 def resource_path(relative_path: str):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -232,7 +233,7 @@ if __name__ == "__main__":
             geckoKernel.quiet = args.quiet
             geckoKernel.encrypt = args.encrypt
 
-        with open(os.path.normpath(args.dolfile), 'rb') as dol:
+        with GC_File(os.path.normpath(args.dolfile), 'rb') as dol:
             dolFile = DolFile(dol)
 
         codeHandler.optimizeList = args.optimize
