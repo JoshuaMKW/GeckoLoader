@@ -621,7 +621,7 @@ def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
 
 
 def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
-    for _, address, size, _, in dolFile.textSections:
+    for _, address, size, _, _ in dolFile.textSections:
         dolFile.seek(address)
         sample = dolFile.read(size)
 
