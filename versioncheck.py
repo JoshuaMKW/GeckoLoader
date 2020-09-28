@@ -1,7 +1,7 @@
 ﻿from urllib import request
 from bs4 import BeautifulSoup
 
-class Updater:
+class Updater(object):
 
     def __init__(self, owner: str, repository: str):
         self.owner = owner
@@ -14,7 +14,7 @@ class Updater:
             html = response.read()
         return html
 
-    def get_newest_version(self):
+    def get_newest_version(self) -> str:
         '''Returns newest release version'''
         try:
             response = self.request_release_data()

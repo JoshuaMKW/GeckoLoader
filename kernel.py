@@ -24,18 +24,21 @@ def timer(func):
         end = time.perf_counter()
         print(tools.color_text(f'\n  :: Completed in {(end - start):0.4f} seconds!\n', defaultColor=tools.TGREENLIT))
         return value
+    return wrapper
+
+class InvalidGeckoCodeError(Exception): pass
 
 class GCT(object):
 
-    def __init__(self, f: GC_File):
+    def __init__(self, f: open):
         self.codeList = BytesIO(f.read())
-        self.rawLineCount = f.size() >> 3
+        self.rawLineCount = tools.stream_size(self.codeList) >> 3
         self.lineCount = self.rawLineCount - 2
-        self.size = f.size()
+        self.size = tools.stream_size(self.codeList)
         f.seek(0)
 
     @staticmethod
-    def determine_codelength(codetype, info):
+    def determine_codelength(codetype, info) -> int:
         if codetype.startswith(b'\x06'):
             bytelength = int.from_bytes(info, byteorder='big', signed=False)
             padding = get_alignment(bytelength, 8)
@@ -122,9 +125,9 @@ class GCT(object):
                         dolFile.seek(address)
 
                         value = int.from_bytes(info, byteorder='big', signed=False)
-                        data = self.codeList.read(2).hex()
-                        size = int(data[:-3], 16)
-                        counter = int(data[1:], 16)
+                        data = read_uint16(self.codeList)
+                        size = data & 0x3000
+                        counter = data & 0xFFF
                         address_increment = read_uint16(self.codeList)
                         value_increment = read_uint32(self.codeList)
 
@@ -186,13 +189,13 @@ class CodeHandler(object):
         self._rawData = BytesIO(f.read())
 
         '''Get codelist pointer'''
-        f.seek(0xFA)
-        codelistUpper = f.read(2).hex()
-        f.seek(0xFE)
-        codelistLower = f.read(2).hex()
+        self._rawData.seek(0xFA)
+        codelistUpper = self._rawData.read(2).hex()
+        self._rawData.seek(0xFE)
+        codelistLower = self._rawData.read(2).hex()
 
         self.codeListPointer = int(codelistUpper[2:] + codelistLower[2:], 16)
-        self.handlerLength = len(self._rawData.getbuffer())
+        self.handlerLength = tools.stream_size(self._rawData)
         self.initAddress = 0x80001800
         self.startAddress = 0x800018A8
 
@@ -217,7 +220,7 @@ class CodeHandler(object):
 
         f.seek(0)
 
-    def gecko_parser(self, geckoText):
+    def gecko_parser(self, geckoText) -> str:
         with open(r'{}'.format(geckoText), 'rb') as gecko:
             result = chardet.detect(gecko.read())
             encodeType = result['encoding']
@@ -252,7 +255,7 @@ class CodeHandler(object):
         return geckoCodes
 
     @staticmethod
-    def encrypt_key(key: int):
+    def encrypt_key(key: int)  -> int:
         b1 = key & 0xFF
         b2 = (key >> 8) & 0xFF
         b3 = (key >> 16) & 0xFF
@@ -277,7 +280,7 @@ class CodeHandler(object):
             except:
                 break
 
-    def find_variable_data(self, variable):
+    def find_variable_data(self, variable) -> int:
         self._rawData.seek(0)
 
         if self._rawData.read(4) == variable:
@@ -314,11 +317,11 @@ class KernelLoader(object):
 
     def __init__(self, f):
         self._rawData = BytesIO(f.read())
-        self.initDataList = None
-        self.gpModDataList = None
-        self.gpDiscDataList = None
-        self.gpKeyAddrList = None
-        self.codeLocation = None
+        self._initDataList = None
+        self._gpModDataList = None
+        self._gpDiscDataList = None
+        self._gpKeyAddrList = None
+        self.patchJob = None
         self.initAddress = None
         self.protect = False
         self.verbosity = 0
@@ -327,18 +330,17 @@ class KernelLoader(object):
 
     def set_variables(self, entryPoint: list, baseOffset: int=0):
         self._rawData.seek(0)
-        if self.gpModDataList is None:
-            return
 
-        sample = self._rawData.read(2)
+        if self._gpModDataList is None:
+            return
         
-        while sample:
+        while sample := self._rawData.read(2):
             if sample == b'GH':
                 self._rawData.seek(-2, 1)
-                write_uint16(self._rawData, self.gpModDataList[0])
+                write_uint16(self._rawData, self._gpModDataList[0])
             elif sample == b'GL':
                 self._rawData.seek(-2, 1)
-                write_uint16(self._rawData, baseOffset + self.gpModDataList[1])
+                write_uint16(self._rawData, baseOffset + self._gpModDataList[1])
             elif sample == b'IH':
                 self._rawData.seek(-2, 1)
                 write_uint16(self._rawData, entryPoint[0])
@@ -347,29 +349,27 @@ class KernelLoader(object):
                 write_uint16(self._rawData, entryPoint[1])
             elif sample == b'KH':
                 self._rawData.seek(-2, 1)
-                write_uint16(self._rawData, self.gpKeyAddrList[0])
+                write_uint16(self._rawData, self._gpKeyAddrList[0])
             elif sample == b'KL':
                 self._rawData.seek(-2, 1)
-                write_uint16(self._rawData, baseOffset + self.gpKeyAddrList[1])
-
-            sample = self._rawData.read(2)
+                write_uint16(self._rawData, baseOffset + self._gpKeyAddrList[1])
 
     def complete_data(self, codeHandler: CodeHandler, initpoint: list):
-        upperAddr, lowerAddr = ((self.initAddress >> 16) & 0xFFFF, self.initAddress & 0xFFFF)
-        key = random.randrange(0x100000000)
+        _upperAddr, _lowerAddr = ((self.initAddress >> 16) & 0xFFFF, self.initAddress & 0xFFFF)
+        _key = random.randrange(0x100000000)
         self._rawData.seek(0)
 
         sample = self._rawData.read(4)
 
-        while sample:
+        while sample := self._rawData.read(4):
             if sample == b'HEAP': #Found keyword "HEAP". Goes with the resize of the heap
                 self._rawData.seek(-4, 1)
 
                 gpModInfoOffset = self._rawData.tell()
-                if lowerAddr + gpModInfoOffset > 0x7FFF: #Absolute addressing
-                    gpModUpperAddr = upperAddr + 1
+                if _lowerAddr + gpModInfoOffset > 0x7FFF: #Absolute addressing
+                    gpModUpperAddr = _upperAddr + 1
                 else:
-                    gpModUpperAddr = upperAddr
+                    gpModUpperAddr = _upperAddr
 
                 if codeHandler.allocation == None:
                     codeHandler.allocation = (codeHandler.handlerLength + codeHandler.geckoCodes.size + 7) & -8
@@ -400,22 +400,20 @@ class KernelLoader(object):
                 self._rawData.seek(-4, 1)
 
                 gpKeyOffset = self._rawData.tell()
-                if lowerAddr + gpKeyOffset > 0x7FFF: #Absolute addressing
-                    gpKeyUpperAddr = upperAddr + 1
+                if _lowerAddr + gpKeyOffset > 0x7FFF: #Absolute addressing
+                    gpKeyUpperAddr = _upperAddr + 1
                 else:
-                    gpKeyUpperAddr = upperAddr
+                    gpKeyUpperAddr = _upperAddr
 
-                write_uint32(self._rawData, CodeHandler.encrypt_key(key))
-            
-            sample = self._rawData.read(4)
+                write_uint32(self._rawData, CodeHandler.encrypt_key(_key))
 
-        self.gpModDataList = (gpModUpperAddr, gpModInfoOffset)
-        self.gpKeyAddrList = (gpKeyUpperAddr, gpKeyOffset)
+        self._gpModDataList = (gpModUpperAddr, gpModInfoOffset)
+        self._gpKeyAddrList = (gpKeyUpperAddr, gpKeyOffset)
 
-        self.set_variables(initpoint, lowerAddr)
+        self.set_variables(initpoint, _lowerAddr)
         
         if self.encrypt:
-            codeHandler.encrypt_data(key)
+            codeHandler.encrypt_data(_key)
 
 
     def patch_arena(self, codeHandler: CodeHandler, dolFile: DolFile):
@@ -425,26 +423,21 @@ class KernelLoader(object):
         self._rawData.write(codeHandler._rawData.getvalue() + codeHandler.geckoCodes.codeList.getvalue())
 
         self._rawData.seek(0)
-        kernelData = self._rawData.getvalue()
+        _kernelData = self._rawData.getvalue()
 
-        status = dolFile.append_text_sections([(kernelData, self.initAddress)])
-
-        if status is True:
-            dolFile.entryPoint = self.initAddress
-
-        return status
+        dolFile.append_text_sections([(_kernelData, self.initAddress)])
+        dolFile.entryPoint = self.initAddress
 
     def patch_legacy(self, codeHandler: CodeHandler, dolFile: DolFile):
         codeHandler._rawData.seek(0)
         codeHandler.geckoCodes.codeList.seek(0)
         
-        handlerData = codeHandler._rawData.getvalue() + codeHandler.geckoCodes.codeList.getvalue()
+        _handlerData = codeHandler._rawData.getvalue() + codeHandler.geckoCodes.codeList.getvalue()
 
-        status = dolFile.append_text_sections([(handlerData, codeHandler.initAddress)])
-        return status
+        dolFile.append_text_sections([(_handlerData, codeHandler.initAddress)])
 
     def protect_game(self, codeHandler: CodeHandler):
-        oldpos = codeHandler.geckoCodes.codeList.tell()
+        _oldpos = codeHandler.geckoCodes.codeList.tell()
 
         protectdata = [b'\xC0\x00\x00\x00\x00\x00\x00\x17',
 					   b'\x7C\x08\x02\xA6\x94\x21\xFF\x70',
@@ -477,11 +470,11 @@ class KernelLoader(object):
         codeHandler.geckoCodes.codeList.write(b'\xF0\x00\x00\x00\x00\x00\x00\x00')
         codeHandler.geckoCodes.codeList.seek(0, 2)
         codeHandler.geckoCodes.size = codeHandler.geckoCodes.codeList.tell()
-        codeHandler.geckoCodes.codeList.seek(oldpos)
+        codeHandler.geckoCodes.codeList.seek(_oldpos)
 
     @timer
     def build(self, parser: tools.CommandLineParser, gctFile, dolFile: DolFile, codeHandler: CodeHandler, tmpdir, dump):
-        with GC_File(dump, 'wb+') as final:
+        with open(dump, 'wb+') as final:
 
             if dolFile.get_full_size() < 0x100:
                 parser.error(tools.color_text('DOL header is corrupted. Please provide a clean file\n', defaultColor=tools.TREDLIT), exit=False)
@@ -507,7 +500,7 @@ class KernelLoader(object):
                     
             else:
                 with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
-                    temp.write(bytes.fromhex('00D0C0DE'*2))
+                    temp.write(b'\x00\xD0\xC0\xDE'*2)
 
                     for file in os.listdir(gctFile):
                         if os.path.isfile(os.path.join(gctFile, file)):
@@ -521,7 +514,7 @@ class KernelLoader(object):
                             else:
                                 print(tools.color_text(f'  :: HINT: {file} is not a .txt or .gct file', defaultColor=tools.TYELLOWLIT))
                 
-                    temp.write(bytes.fromhex('F000000000000000'))
+                    temp.write(b'\xF0\x00\x00\x00\x00\x00\x00\x00')
                     temp.seek(0)
                     codeHandler.geckoCodes = GCT(temp)
 
@@ -529,14 +522,14 @@ class KernelLoader(object):
                 parser.error(tools.color_text('No valid gecko code file found\n', defaultColor=tools.TREDLIT), exit=False)
                 return
 
-            if self.protect and self.codeLocation == "ARENA":
+            if self.protect and self.patchJob == "ARENA":
                 self.protect_game(codeHandler)
 
-            if self.codeLocation == 'AUTO':
+            if self.patchJob == 'AUTO':
                 if codeHandler.initAddress + codeHandler.handlerLength + codeHandler.geckoCodes.size > 0x80002FFF:
-                    self.codeLocation = 'ARENA'
+                    self.patchJob = 'ARENA'
                 else:
-                    self.codeLocation = 'LEGACY'
+                    self.patchJob = 'LEGACY'
 
             '''Get entrypoint (or BSS midpoint) for insert'''
 
@@ -558,29 +551,24 @@ class KernelLoader(object):
                     print(tools.color_text('\n  :: All codes have been successfully pre patched', defaultColor=tools.TGREENLIT))
                 return
 
-            if self.codeLocation == 'LEGACY':
+            if self.patchJob == 'LEGACY':
                 codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
                 codeHandler.set_variables(dolFile)
                 hooked = determine_codehook(dolFile, codeHandler, True)
-                status = self.patch_legacy(codeHandler, dolFile)
+                self.patch_legacy(codeHandler, dolFile)
                 legacy = True
             else:
                 hooked = determine_codehook(dolFile, codeHandler, False)
-                status = self.patch_arena(codeHandler, dolFile)
+                self.patch_arena(codeHandler, dolFile)
                 legacy = False
             
             if not hooked:
                 parser.error(tools.color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=tools.TREDLIT))
-
-            if status is False:
-                parser.error(tools.color_text('Not enough text sections to patch the DOL file! Potentially due to previous mods?\n', defaultColor=tools.TREDLIT), exit=False)
-                return
-
-            dolFile.save(final)
-        
-            if codeHandler.allocation < codeHandler.geckoCodes.size:
-                print(tools.color_text('\n  :: WARNING: Allocated codespace was smaller than the given codelist. The game will crash if run', defaultColor=tools.TYELLOW))
+            elif codeHandler.allocation < codeHandler.geckoCodes.size:
+                parser.error(tools.color_text('\n  :: Error: Allocated codespace was smaller than the given codelist.\n', defaultColor=tools.TYELLOW))
                 
+            dolFile.save(final)
+
             if self.quiet:
                 return
 
@@ -634,7 +622,7 @@ def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
 
 def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
     for _, address, size, _, in dolFile.textSections:
-        dolFile.seek(address, 0)
+        dolFile.seek(address)
         sample = dolFile.read(size)
 
         if codeHandler.hookType == 'VI':
@@ -647,8 +635,7 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
             raise NotImplementedError(tools.color_text(f'Unsupported hook type specified ({codeHandler.hookType})', defaultColor=tools.TREDLIT))
 
         if result >= 0:
-            dolFile.seek(address, 0)
-            dolFile.seek(result, 1)
+            dolFile.seek(address + result)
         else:
             if codeHandler.hookType == 'VI':
                 result = sample.find(codeHandler.wiiVIHook)
@@ -660,14 +647,12 @@ def assert_code_hook(dolFile: DolFile, codeHandler: CodeHandler):
                 raise NotImplementedError(tools.color_text(f'Unsupported hook type specified ({codeHandler.hookType})', defaultColor=tools.TREDLIT))
 
             if result >= 0:
-                dolFile.seek(address, 0)
-                dolFile.seek(result, 1)
+                dolFile.seek(address + result)
             else:
                 continue
 
-        sample = read_uint32(dolFile)
-        while sample != 0x4E800020:
-            sample = read_uint32(dolFile)
+        while (sample := read_uint32(dolFile)) != 0x4E800020:
+            pass
 
         dolFile.seek(-4, 1)
         codeHandler.hookAddress = dolFile.tell()

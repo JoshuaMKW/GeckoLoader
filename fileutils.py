@@ -1,5 +1,4 @@
-from io import FileIO
-from tools import get_alignment
+from tools import get_alignment, align_byte_size
 import struct
 
 def read_sbyte(f):
@@ -56,34 +55,3 @@ def read_bool(f, vSize=1):
 def write_bool(f, val, vSize=1):
     if val is True: f.write(b'\x00'*(vSize-1) + b'\x01')
     else: f.write(b'\x00' * vSize)
-
-class GC_File(FileIO):
-
-    def __init__(self, *args, **kwargs):
-        self._args = args
-        self._kwargs = kwargs
-        
-    def __enter__(self):
-        self._filestream = open(*self._args, **self._kwargs)
-        return self._filestream
-
-    def __exit__(self, *args):
-        self._filestream.close()
-    
-    def size(self, ofs: int = 0):
-        _pos = self.tell()
-        self.seek(0, 2)
-        _size = self.tell()
-        self.seek(_pos, 1)
-        return _size + ofs
-
-    def size_alignment(self, alignment: int):
-        """ Return file alignment, 0 = aligned, non zero = misaligned """
-        return get_alignment(self.size(), alignment)
-
-    def align_file_size(self, alignment: int, fillchar='00'):
-        """ Align a file to be the specified size """
-        self.write(bytes.fromhex(fillchar * self.size_alignment(alignment)))
-
-
-    

@@ -1,6 +1,7 @@
 import struct
 import sys
 import os
+from io import IOBase
 from argparse import ArgumentParser
 
 try:
@@ -16,27 +17,50 @@ try:
     TREDLIT = Style.BRIGHT + Fore.RED
 
 except ImportError:
-    TRESET = ''
-    TGREEN = ''
-    TGREENLIT = ''
-    TYELLOW = ''
-    TYELLOWLIT = ''
-    TRED = ''
-    TREDLIT = ''
+    TRESET = ""
+    TGREEN = ""
+    TGREENLIT = ""
+    TYELLOW = ""
+    TYELLOWLIT = ""
+    TRED = ""
+    TREDLIT = ""
 
-def get_alignment(number, align: int):
+def get_alignment(number: int, align: int) -> int:
     if number % align != 0:
         return align - (number % align)
     else:
         return 0
 
-def color_text(text: str, textToColor: list=[('', None)], defaultColor: str=None):
+def stream_size(obj, ofs: int = 0) -> int:
+    if hasattr(obj, "getbuffer"):
+        return len(obj.getbuffer()) + ofs
+    elif hasattr(obj, "tell") and hasattr(obj, "seek"):
+        _pos = obj.tell()
+        obj.seek(0, 2)
+        _size = obj.tell()
+        obj.seek(_pos, 1)
+        return _size + ofs
+    else:
+        raise NotImplementedError(f"Getting the stream size of class {type(obj)} is unsupported")
+
+def align_byte_size(obj, alignment: int, fillchar="00"):
+    if isinstance(obj, bytes):
+        obj += bytes.fromhex(fillchar * get_alignment(len(obj), alignment))
+    elif isinstance(obj, bytearray):
+        obj.append(bytearray.fromhex(fillchar * get_alignment(len(obj), alignment)))
+    elif issubclass(type(obj), IOBase):
+        _size = stream_size(obj)
+        obj.write(bytes.fromhex(fillchar * get_alignment(_size, alignment)))
+    else:
+        raise NotImplementedError(f"Aligning the size of class {type(obj)} is unsupported")
+
+def color_text(text: str, textToColor: list=[("", None)], defaultColor: str=None) -> str:
     currentColor = None
-    formattedText = ''
+    formattedText = ""
 
     format = False
     for itemPair in textToColor:
-        if itemPair[0] != '' and itemPair[1] is not None:
+        if itemPair[0] != "" and itemPair[1] is not None:
             format = True
             break
 
@@ -46,7 +70,7 @@ def color_text(text: str, textToColor: list=[('', None)], defaultColor: str=None
     for char in text:
         handled = False
         for itemPair in textToColor:
-            if (char in itemPair[0] or r'\*' in itemPair[0]) and itemPair[1] is not None:
+            if (char in itemPair[0] or r"\*" in itemPair[0]) and itemPair[1] is not None:
                 if currentColor != itemPair[1]:
                     formattedText += TRESET
                     formattedText += itemPair[1]
@@ -77,11 +101,11 @@ class CommandLineParser(ArgumentParser):
 
         if prefix is None:
             if exit:
-                self.exit(2, f'{self.prog}: error: {message}\n')
+                self.exit(2, f"{self.prog}: error: {message}\n")
             else:
-                self._print_message(f'{self.prog}: error: {message}\n')
+                self._print_message(f"{self.prog}: error: {message}\n")
         else:
             if exit:
-                self.exit(2, f'{prefix} {message}\n')
+                self.exit(2, f"{prefix} {message}\n")
             else:
-                self._print_message(f'{prefix} {message}\n')
+                self._print_message(f"{prefix} {message}\n")

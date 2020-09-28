@@ -17,6 +17,6 @@
    2. In command prompt, input `GeckoLoader -h` for help on syntax and options
    3. Run the command `GeckoLoader <dol> <codelist> <options>` filling in the variables as needed
 
-Your new patched `dol` file will be in the folder ./BUILD/
+Your new patched `dol` file will be in the folder `./geckoloader-build` by default
 
 *NOTE: <codelist> can be an Ocarina formatted txt file, a gct, or a folder containing the previous mentioned files.
