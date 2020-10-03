@@ -34,31 +34,32 @@ using f64 = double;
 
 __attribute__((noreturn)) int main();
 
-struct CodeList {
+struct CodeList
+{
 
   u16 mBaseASM;
   u16 mUpperBase;
   u16 mOffsetASM;
   u16 mLowerOffset;
-
 };
 
-struct Info {
+struct Info
+{
 
   const u32 allocsize;
   const u32 loaderSize;
   const u32 handlerSize;
   const u32 codeSize;
-  const u32* codehandlerHook;
+  const u32 *codehandlerHook;
   const u32 crypted;
-
 };
 
-class DiscHeader {
+class DiscHeader
+{
 
 public:
-
-  enum class TVMODE {
+  enum class TVMODE
+  {
     NTSC,
     PAL,
     DEBUG,
@@ -66,58 +67,64 @@ public:
     MPAL,
     PAL60
   };
-  struct MetaData {
 
-    const u8 mDiscID; //0x0000
-    const u16 mGameCode; //0x0001
-    const u8 mRegionCode; //0x0003
-    const u16 mMakerCode; //0x0004
-    const u8 mDiscNumber; //0x0006
-    const u8 mDiscVersion; //0x0007
-    const u8 mAudioStreaming; //0x0008
-    const u8 mStreamBufferSize; //0x0009
-    const u8 _00[12]; //0x000A
-    const u32 mWiiMagic; //0x0018
-    const u32 mGCNMagic; //0x001C
-    const u32 mNinBootCode; //0x0020
-    const u32 mAppVersion; //0x0024
-    const u32 mPhysicalRAMSize; //0x0028
-    const u32 mBoardModel; //0x002C
-    u8* mOSArenaLo; //0x0030
-    u8* mOSArenaHi; //0x0034
-    u32* mFstStart; //0x0038
-    u32 mFstSize; //0x003C
-    u32 mDebuggerPresent; //0x0040
+  struct MetaData
+  {
+
+    const u8 mDiscID;                 //0x0000
+    const u16 mGameCode;              //0x0001
+    const u8 mRegionCode;             //0x0003
+    const u16 mMakerCode;             //0x0004
+    const u8 mDiscNumber;             //0x0006
+    const u8 mDiscVersion;            //0x0007
+    const u8 mAudioStreaming;         //0x0008
+    const u8 mStreamBufferSize;       //0x0009
+    const u8 _00[12];                 //0x000A
+    const u32 mWiiMagic;              //0x0018
+    const u32 mGCNMagic;              //0x001C
+    const u32 mNinBootCode;           //0x0020
+    const u32 mAppVersion;            //0x0024
+    const u32 mPhysicalRAMSize;       //0x0028
+    const u32 mBoardModel;            //0x002C
+    u8 *mOSArenaLo;                   //0x0030
+    u8 *mOSArenaHi;                   //0x0034
+    u32 *mFstStart;                   //0x0038
+    u32 mFstSize;                     //0x003C
+    u32 mDebuggerPresent;             //0x0040
     const u32 mDebuggerExceptionMask; //0x0044
-    void* mExceptionHookDest; //0x0048
-    const u32 mExceptionReturn; //0x004C
-    u32 _01[0x10 / 4]; //0x0050
-    u32 mDebuggerHook[0x24 / 4]; //0x0060
-    u32 _02[0x3C / 4]; //0x0084
-    u32 mCurrentOSContext; //0x00C0
-    u32 mPreviousOSMask; //0x00C4
-    u32 mCurrentOSMask; //0x00C8
-    TVMODE mTVMode; //0x00CC
-    u32 mARAMSize; //0x00D0
-    void* mCurOSContextLogical; //0x00D4
-    void* mDefaultOSThreadLogical; //0x00D8
-    u32* mThreadQueueHead; //0x00DC
-    u32* mThreadQueueTail; //0x00E0
-    u32* mCurrentOSThread; //0x00E4
-    u32 mDebuggerSize; //0x00E8
-    u32* mDebuggerMonitorLoc; //0x00EC
-    u32 mSimulatedMemSize; //0x00F0
-    u8* mBi2HeaderLoc; //0x00F4
-    u32 mBusClockSpeed; //0x00F8
-    u32 mCPUClockSpeed; //00x00FC
-    u32 _04[0x3010 / 4];
-    u8* mWiiHeap; //0x3110
-
+    void *mExceptionHookDest;         //0x0048
+    const u32 mExceptionReturn;       //0x004C
+    u32 _01[0x10 / 4];                //0x0050
+    u32 mDebuggerHook[0x24 / 4];      //0x0060
+    u32 _02[0x3C / 4];                //0x0084
+    u32 mCurrentOSContext;            //0x00C0
+    u32 mPreviousOSMask;              //0x00C4
+    u32 mCurrentOSMask;               //0x00C8
+    DiscHeader::TVMODE mTVMode;       //0x00CC
+    u32 mARAMSize;                    //0x00D0
+    void *mCurOSContextLogical;       //0x00D4
+    void *mDefaultOSThreadLogical;    //0x00D8
+    u32 *mThreadQueueHead;            //0x00DC
+    u32 *mThreadQueueTail;            //0x00E0
+    u32 *mCurrentOSThread;            //0x00E4
+    u32 mDebuggerSize;                //0x00E8
+    u32 *mDebuggerMonitorLoc;         //0x00EC
+    u32 mSimulatedMemSize;            //0x00F0
+    u8 *mBi2HeaderLoc;                //0x00F4
+    u32 mBusClockSpeed;               //0x00F8
+    u32 mCPUClockSpeed;               //0x00FC
+    u32 _04[0x3010 / 4];              //0x0100
+    u8 *mWiiHeap;                     //0x3110
   };
 
   static MetaData sMetaData;
 
-  enum class CONSOLETYPE { Gamecube, Wii, Unknown };
+  enum class CONSOLETYPE
+  {
+    Gamecube,
+    Wii,
+    Unknown
+  };
 
   inline u32 getGameID() { return ((u32)sMetaData.mDiscID << 24) | ((u32)sMetaData.mGameCode << 8) | ((u32)sMetaData.mRegionCode); }
   inline u16 getMakerID() { return sMetaData.mMakerCode; }
@@ -126,10 +133,12 @@ public:
 
   CONSOLETYPE detectHomeConsole()
   {
-    if (sMetaData.mGCNMagic) {
+    if (sMetaData.mGCNMagic)
+    {
       return CONSOLETYPE::Gamecube;
     }
-    else if (sMetaData.mWiiMagic) {
+    else if (sMetaData.mWiiMagic)
+    {
       return CONSOLETYPE::Wii;
     }
 
@@ -138,15 +147,19 @@ public:
 
   inline void setHeap(u32 alloc)
   {
-    if (sMetaData.mBi2HeaderLoc < sMetaData.mOSArenaHi) {
+    if (sMetaData.mBi2HeaderLoc < sMetaData.mOSArenaHi)
+    {
       sMetaData.mOSArenaHi = sMetaData.mBi2HeaderLoc - alloc;
-      if (this->detectHomeConsole() == DiscHeader::CONSOLETYPE::Wii) {
+      if (this->detectHomeConsole() == DiscHeader::CONSOLETYPE::Wii)
+      {
         sMetaData.mWiiHeap = sMetaData.mBi2HeaderLoc - alloc;
       }
     }
-    else {
+    else
+    {
       sMetaData.mOSArenaHi = sMetaData.mWiiHeap - alloc;
-      if (this->detectHomeConsole() == DiscHeader::CONSOLETYPE::Wii) {
+      if (this->detectHomeConsole() == DiscHeader::CONSOLETYPE::Wii)
+      {
         sMetaData.mWiiHeap -= alloc;
       }
     }
@@ -155,15 +168,16 @@ public:
 
 static DiscHeader sDisc;
 Info gpModInfo = {
-  0x48454150,
-  0x4C53495A,
-  0x4853495A,
-  0x4353495A,
-  (const u32*)0x484F4F4B,
-  0x43525054,
+    0x48454150,
+    0x4C53495A,
+    0x4853495A,
+    0x4353495A,
+    (const u32 *)0x484F4F4B,
+    0x43525054,
 };
 
-inline u32 extractBranchAddr(u32* bAddr) {
+inline u32 extractBranchAddr(u32 *bAddr)
+{
   s32 offset;
   if (*bAddr & 0x2000000)
     offset = (*bAddr & 0x3FFFFFD) - 0x4000000;
@@ -172,74 +186,82 @@ inline u32 extractBranchAddr(u32* bAddr) {
   return (u32)bAddr + offset;
 }
 
-namespace Memory {
+namespace Memory
+{
 
-  static void memcpy(u8* to, u8* from, s32 size)
+  static void memcpy(u8 *to, u8 *from, s32 size)
   {
-    for (s32 i = 0; i < size; ++i) {
+    for (s32 i = 0; i < size; ++i)
+    {
       *to++ = *from++;
     }
   }
 
-  namespace Cache {
+  namespace Cache
+  {
 
-    static inline void flushAddr(void* addr)
+    static inline void flushAddr(void *addr)
     {
       dcbf(addr);
       icbi(addr);
     }
 
-    static void flushRange(u8* addr, s32 size)
+    static void flushRange(u8 *addr, s32 size)
     {
       size += 31 + (((u32)addr & 31) > 0);
 
-      for (u32 i = 0; i < (size >> 5); ++i) {
-        flushAddr((void*)(addr + (i << 5)));
+      for (u32 i = 0; i < (size >> 5); ++i)
+      {
+        flushAddr((void *)(addr + (i << 5)));
       }
     }
 
-    static void storeAddr(void* addr)
+    static void storeAddr(void *addr)
     {
       dcbst(addr);
       icbi(addr);
     }
 
-    static void storeRange(u8* addr, s32 size)
+    static void storeRange(u8 *addr, s32 size)
     {
       size += 31 + (((u32)addr & 31) > 0);
 
-      for (u32 i = 0; i < (size >> 5); ++i) {
-        storeAddr((void*)(addr + (i << 5)));
+      for (u32 i = 0; i < (size >> 5); ++i)
+      {
+        storeAddr((void *)(addr + (i << 5)));
       }
     }
 
-  }
+  } // namespace Cache
 
-  namespace Direct {
+  namespace Direct
+  {
 
     template <typename T>
-    static inline void write(T* addr, T value)
+    static inline void write(T *addr, T value)
     {
       *addr = value;
       Cache::flushAddr(addr);
     }
 
     /*This constructs a branch instruction. &TO = ((TO - FROM) & MAX_OFFSET) | BRANCH_TYPE | !!isLink*/
-    static inline void branch(void* addr, void* to, bool lk)
+    static inline void branch(void *addr, void *to, bool lk)
     {
-      Direct::write<u32>((u32*)(addr), ((((u32)(to)-(u32)(addr)) & 0x3ffffff) | 0x48000000 | lk));
+      Direct::write<u32>((u32 *)(addr), ((((u32)(to) - (u32)(addr)) & 0x3ffffff) | 0x48000000 | lk));
     }
 
-  }
+  } // namespace Direct
 
-  namespace Search {
+  namespace Search
+  {
 
-    static u32* array(u32* start, u32* end, u32 arrayLength, const u32* hookData)
+    static u32 *array(u32 *start, u32 *end, u32 arrayLength, const u32 *hookData)
     {
       u32 index = 0;
 
       /*Loop through the games RAM, make sure we don't find our own hook data by accident*/
-      for (u32 i = 0; &start[i] < end; ++i) {
+      for (u32 i = 0; &start[i] < end; ++i)
+      {
         /*If the data matches, increase the index counter and continue search,
         else set index to 0 and continue searching*/
         if (start[i] == hookData[index])
@@ -248,17 +270,19 @@ namespace Memory {
           index = 0;
 
         /*If the data has matched the whole array, return the address of the match*/
-        if (index >= (arrayLength) && (&start[i] < (u32*)&gpModInfo || &start[i] > (u32*) & gpModInfo + sizeof(Info)))
+        if (index >= (arrayLength) && (&start[i] < (u32 *)&gpModInfo || &start[i] > (u32 *)&gpModInfo + sizeof(Info)))
           return &start[i];
       }
       return nullptr;
     }
 
     template <typename T>
-    static T* single(T* start, T* end, T match)
+    static T *single(T *start, T *end, T match)
     {
-      for (u32 i = 0; &start[i] < end; ++i) {
-        if (start[i] == match) {
+      for (u32 i = 0; &start[i] < end; ++i)
+      {
+        if (start[i] == match)
+        {
           return &start[i];
         }
       }
@@ -267,14 +291,15 @@ namespace Memory {
 
     /*Call this after viHook, finds the address of the first instance
     of targetVal, and hooks it to the pointer hookTo*/
-    static inline void hookFunction(u32* start, u32 targetVal, void* hookTo, bool lk)
+    static inline void hookFunction(u32 *start, u32 targetVal, void *hookTo, bool lk)
     {
       Direct::branch(Search::single<u32>(start, start + 0x500, targetVal), hookTo, lk);
     }
 
-  }
+  } // namespace Search
 
-  class Crypt {
+  class Crypt
+  {
 
   private:
     u32 key;
@@ -309,74 +334,84 @@ namespace Memory {
       this->key = key;
     }
 
-    inline void xorCrypt(u32* dest, u32* buffer, u32 size)
+    inline void xorCrypt(u32 *dest, u32 *buffer, u32 size)
     {
       auto key = this->getKey();
 
-      for (u32 i = 0; i < size; ++i) {
+      for (u32 i = 0; i < size; ++i)
+      {
         dest[i] = buffer[i] ^ key;
         key += i << 3;
       }
     }
   };
 
-  enum class Space : u32 { Start = 0x80000000, End = 0x81800000, Size = 0x1800000 };
+  enum class Space : u32
+  {
+    Start = 0x80000000,
+    End = 0x81800000,
+    Size = 0x1800000
+  };
 
-}
+} // namespace Memory
 
-Memory::Crypt gpCryptor = { 0x43595054 };
+Memory::Crypt gpCryptor = {0x43595054};
 
 static void initMods()
 {
   sDisc.setHeap(gpModInfo.allocsize); /*Reallocate the internal heap*/
 
   /*Change codelist pointer to the new address in the allocation*/
-  CodeList* codelistPointer = (CodeList*)((u32)&gpModInfo + sizeof(Info) + 0xFC);
+  CodeList *codelistPointer = (CodeList *)((u32)&gpModInfo + sizeof(Info) + 0xFC);
   codelistPointer->mUpperBase = (((u32)sDisc.sMetaData.mOSArenaHi + gpModInfo.handlerSize) >> 16) & 0xFFFF;
   codelistPointer->mLowerOffset = ((u32)sDisc.sMetaData.mOSArenaHi + gpModInfo.handlerSize) & 0xFFFF;
 
   /*Copy codelist to the new allocation*/
-  if (gpModInfo.crypted) {
-    Memory::memcpy(sDisc.sMetaData.mOSArenaHi, (u8*)&gpModInfo + sizeof(Info) + 4, gpModInfo.handlerSize);
-    gpCryptor.xorCrypt((u32*)(sDisc.sMetaData.mOSArenaHi + gpModInfo.handlerSize), (u32*)((u8*)&gpModInfo + sizeof(Info) + gpModInfo.handlerSize + 4), gpModInfo.codeSize >> 2);
+  if (gpModInfo.crypted)
+  {
+    Memory::memcpy(sDisc.sMetaData.mOSArenaHi, (u8 *)&gpModInfo + sizeof(Info) + 4, gpModInfo.handlerSize);
+    gpCryptor.xorCrypt((u32 *)(sDisc.sMetaData.mOSArenaHi + gpModInfo.handlerSize), (u32 *)((u8 *)&gpModInfo + sizeof(Info) + gpModInfo.handlerSize + 4), gpModInfo.codeSize >> 2);
   }
-  else {
-    Memory::memcpy(sDisc.sMetaData.mOSArenaHi, (u8*)&gpModInfo + sizeof(Info) + 4, gpModInfo.handlerSize + gpModInfo.codeSize);
+  else
+  {
+    Memory::memcpy(sDisc.sMetaData.mOSArenaHi, (u8 *)&gpModInfo + sizeof(Info) + 4, gpModInfo.handlerSize + gpModInfo.codeSize);
   }
 
   /*Get codehandler hook resources*/
-  auto fillInField = Memory::Search::single<u32>((u32*)sDisc.sMetaData.mOSArenaHi, (u32*)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x00DEDEDE);
-  auto returnAddress = extractBranchAddr((u32*)gpModInfo.codehandlerHook);
+  auto fillInField = Memory::Search::single<u32>((u32 *)sDisc.sMetaData.mOSArenaHi, (u32 *)(sDisc.sMetaData.mOSArenaHi + 0x600), 0x00DEDEDE);
+  auto returnAddress = extractBranchAddr((u32 *)gpModInfo.codehandlerHook);
   auto ppc = *gpModInfo.codehandlerHook;
 
-  
   /*Write hook branch*/
-  Memory::Direct::branch((void*)gpModInfo.codehandlerHook, (void*)((u32)sDisc.sMetaData.mOSArenaHi + 0xA8), false); //entryhook
+  Memory::Direct::branch((void *)gpModInfo.codehandlerHook, (void *)((u32)sDisc.sMetaData.mOSArenaHi + 0xA8), false); //entryhook
 
   /*Temporary nop*/
   *fillInField = 0x60000000;
-  
+
   /*Flush the cache so that the instructions update*/
-  Memory::Cache::flushRange((u8*)sDisc.sMetaData.mOSArenaHi, gpModInfo.handlerSize + gpModInfo.codeSize);
+  Memory::Cache::flushRange((u8 *)sDisc.sMetaData.mOSArenaHi, gpModInfo.handlerSize + gpModInfo.codeSize);
 
   /*Call the codehandler*/
-  call((void*)((u32)(sDisc.sMetaData.mOSArenaHi) + 0xA8))();
+  call((void *)((u32)(sDisc.sMetaData.mOSArenaHi) + 0xA8))();
 
   /*Write original instruction or translate offset data if a branch*/
-  if (((ppc >> 24) & 0xFF) > 0x47 && ((ppc >> 24) & 0xFF) < 0x4C) {
-    Memory::Direct::branch((void*)fillInField, (void*)returnAddress, ppc & 1);
-  } else {
+  if (((ppc >> 24) & 0xFF) > 0x47 && ((ppc >> 24) & 0xFF) < 0x4C)
+  {
+    Memory::Direct::branch((void *)fillInField, (void *)returnAddress, ppc & 1);
+  }
+  else
+  {
     Memory::Direct::write(fillInField, ppc);
   }
 
   /*Write branch back to the hook address + 4*/
-  Memory::Direct::branch((void*)&fillInField[1], (void*)(&gpModInfo.codehandlerHook[1]), false); //return
-
+  Memory::Direct::branch((void *)&fillInField[1], (void *)(&gpModInfo.codehandlerHook[1]), false); //return
 }
 
 int main()
 {
-  if (sDisc.detectHomeConsole() != DiscHeader::CONSOLETYPE::Unknown) {
+  if (sDisc.detectHomeConsole() != DiscHeader::CONSOLETYPE::Unknown)
+  {
     initMods();
   }
   __start();

@@ -9,13 +9,13 @@ class Updater(object):
         self.gitReleases = 'https://github.com/{}/{}/releases'
 
     def request_release_data(self):
-        '''Returns "soup" data of the repository releases tab'''
+        """ Returns soup data of the repository releases tab """
         with request.urlopen(self.gitReleases.format(self.owner, self.repo)) as response:
             html = response.read()
         return html
 
     def get_newest_version(self) -> str:
-        '''Returns newest release version'''
+        """ Returns newest release version """
         try:
             response = self.request_release_data()
             soup = BeautifulSoup(response, 'html.parser')

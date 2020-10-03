@@ -245,7 +245,7 @@ if __name__ == "__main__":
             codeHandler.optimizeList = args.optimize
 
         with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as kernelfile:
-            geckoKernel = KernelLoader(kernelfile)
+            geckoKernel = KernelLoader(kernelfile, parser)
 
             if args.init is not None:
                 geckoKernel.initAddress = int(args.init, 16)
@@ -270,7 +270,7 @@ if __name__ == "__main__":
         if not os.path.isdir(TMPDIR):
             os.mkdir(TMPDIR)
         
-        geckoKernel.build(parser, args.codelist, dolFile, codeHandler, TMPDIR, dest)
+        geckoKernel.build(args.codelist, dolFile, codeHandler, TMPDIR, dest)
         
         sys.exit(0)
 
