@@ -13,17 +13,18 @@ class DolFile(object):
         Text = 0
         Data = 1
 
+    maxTextSections = 7
+    maxDataSections = 11
+    offsetInfoLoc = 0
+    addressInfoLoc = 0x48
+    sizeInfoLoc = 0x90 
+    bssInfoLoc = 0xD8
+    entryInfoLoc = 0xE0
+
     def __init__(self, f=None):
-        self.fileOffsetLoc = 0
-        self.fileAddressLoc = 0x48
-        self.fileSizeLoc = 0x90 
-        self.fileBssInfoLoc = 0xD8
-        self.fileEntryLoc = 0xE0
         
         self.textSections = []
         self.dataSections = []
-        self.maxTextSections = 7
-        self.maxDataSections = 11
 
         self.bssAddress = 0
         self.bssSize = 0
@@ -32,27 +33,27 @@ class DolFile(object):
         if f is None: return
         
         # Read text and data section addresses and sizes 
-        for i in range(self.maxTextSections + self.maxDataSections):
-            f.seek(self.fileOffsetLoc + (i << 2))
+        for i in range(DolFile.maxTextSections + DolFile.maxDataSections):
+            f.seek(DolFile.offsetInfoLoc + (i << 2))
             offset = read_uint32(f)
-            f.seek(self.fileAddressLoc + (i << 2))
+            f.seek(DolFile.addressInfoLoc + (i << 2))
             address = read_uint32(f)
-            f.seek(self.fileSizeLoc + (i << 2))
+            f.seek(DolFile.sizeInfoLoc + (i << 2))
             size = read_uint32(f)
             
             if offset >= 0x100:
                 f.seek(offset)
                 data = BytesIO(f.read(size))
-                if i < self.maxTextSections:
+                if i < DolFile.maxTextSections:
                     self.textSections.append([offset, address, size, data, DolFile.SectionType.Text])
                 else:
                     self.dataSections.append([offset, address, size, data, DolFile.SectionType.Data])
         
-        f.seek(self.fileBssInfoLoc)
+        f.seek(DolFile.bssInfoLoc)
         self.bssAddress = read_uint32(f)
         self.bssSize = read_uint32(f)
 
-        f.seek(self.fileEntryLoc)
+        f.seek(DolFile.entryInfoLoc)
         self.entryPoint = read_uint32(f)
         
         self._currLogicAddr = self.get_first_section()[1]
@@ -186,39 +187,42 @@ class DolFile(object):
         f.seek(0)
         f.write(b"\x00" * self.get_full_size())
 
-        for i in range(self.maxTextSections + self.maxDataSections):
-            if i < self.maxTextSections:
+        for i in range(DolFile.maxTextSections + DolFile.maxDataSections):
+            if i < DolFile.maxTextSections:
                 if i < len(self.textSections):
                     offset, address, size, data, _ = self.textSections[i]
                 else:
                     continue
             else:
-                if i - self.maxTextSections < len(self.dataSections):
-                    offset, address, size, data, _ = self.dataSections[i - self.maxTextSections]
+                if i - DolFile.maxTextSections < len(self.dataSections):
+                    offset, address, size, data, _ = self.dataSections[i - DolFile.maxTextSections]
                 else:
                     continue
 
-            f.seek(self.fileOffsetLoc + (i * 4))
+            f.seek(DolFile.offsetInfoLoc + (i << 2))
             write_uint32(f, offset) #offset in file
-            f.seek(self.fileAddressLoc + (i * 4))
+            f.seek(DolFile.addressInfoLoc + (i << 2))
             write_uint32(f, address) #game address
-            f.seek(self.fileSizeLoc + (i * 4))
+            f.seek(DolFile.sizeInfoLoc + (i << 2))
             write_uint32(f, size) #size in file
 
             f.seek(offset)
             f.write(data.getbuffer())
 
-        f.seek(self.fileBssInfoLoc)
+        f.seek(DolFile.bssInfoLoc)
         write_uint32(f, self.bssAddress)
         write_uint32(f, self.bssSize)
 
-        f.seek(self.fileEntryLoc)
+        f.seek(DolFile.entryInfoLoc)
         write_uint32(f, self.entryPoint)
         align_byte_size(f, 256)
 
     def get_full_size(self) -> int:
-        offset, _, size, _, _ = self.get_final_section()
-        return (offset + size + 255) & -256
+        try:
+            offset, _, size, _, _ = self.get_final_section()
+            return (offset + size + 255) & -256
+        except IndexError:
+            return 0x100
 
     def get_section_size(self, index: int, section: SectionType) -> int:
         """ Return the current size of the specified section\n
@@ -234,8 +238,8 @@ class DolFile(object):
         """ Follows the list format: [tuple(<Bytes>Data, <Int>GameAddress or None), tuple(<Bytes>Data... """
 
         for i, dataSet in enumerate(sectionsList):
-            if len(self.textSections) >= self.maxTextSections:
-                raise SectionCountFullError(f"Exceeded max text section limit of {self.maxTextSections}")
+            if len(self.textSections) >= DolFile.maxTextSections:
+                raise SectionCountFullError(f"Exceeded max text section limit of {DolFile.maxTextSections}")
 
             fOffset, _, fSize, _, _ = self.get_final_section()
             _, pAddress, pSize, _, _ = self.textSections[len(self.textSections) - 1]
@@ -267,8 +271,8 @@ class DolFile(object):
         """ Follows the list format: [tuple(<Bytes>Data, <Int>GameAddress or None), tuple(<Bytes>Data... """
 
         for i, dataSet in enumerate(sectionsList):
-            if len(self.dataSections) >= self.maxDataSections:
-                raise SectionCountFullError(f"Exceeded max data section limit of {self.maxDataSections}")
+            if len(self.dataSections) >= DolFile.maxDataSections:
+                raise SectionCountFullError(f"Exceeded max data section limit of {DolFile.maxDataSections}")
 
             fOffset, _, fSize, _, _ = self.get_final_section()
             _, pAddress, pSize, _, _ = self.dataSections[len(self.dataSections) - 1]
@@ -341,22 +345,25 @@ class DolFile(object):
         while (char := self.read(1)) != b"\x00":
             try:
                 string += char.decode(encoding)
+                length += 1
             except UnicodeDecodeError:
                 print(f"{char} at pos {length}, (address 0x{addr + length:08X}) is not a valid utf-8 character")
                 return ""
-            if length > maxlen and maxlen != 0:
-                break
+            if length > (maxlen-1) and maxlen != 0:
+                return string
 
         return string
 
     def print_info(self):
-        print("|---DOL INFO---|".center(20, " "))
+        print("")
+        print("|-- DOL INFO --|".center(20, " "))
+        print("")
 
-        for i, (offset, addr, size, _) in enumerate(self.textSections):
+        for i, (offset, addr, size, _, _) in enumerate(self.textSections):
             header = f"|  Text section {i}  |"
             print("-"*len(header) + "\n" + header + "\n" + "-"*len(header) + f"\n File offset:\t0x{offset:X}\n Virtual addr:\t0x{addr:X}\n Size:\t\t0x{size:X}\n")
         
-        for i, (offset, addr, size, _) in enumerate(self.dataSections):
+        for i, (offset, addr, size, _, _) in enumerate(self.dataSections):
             header = f"|  Data section {i}  |"
             print("-"*len(header) + "\n" + header + "\n" + "-"*len(header) + f"\n File offset:\t0x{offset:X}\n Virtual addr:\t0x{addr:X}\n Size:\t\t0x{size:X}\n")
 

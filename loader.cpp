@@ -157,11 +157,16 @@ public:
     }
     else
     {
-      sMetaData.mOSArenaHi = sMetaData.mWiiHeap - alloc;
       if (this->detectHomeConsole() == DiscHeader::CONSOLETYPE::Wii)
       {
+        sMetaData.mOSArenaHi = sMetaData.mWiiHeap - alloc;
         sMetaData.mWiiHeap -= alloc;
       }
+      else
+      {
+        sMetaData.mOSArenaHi -= alloc;
+      }
+      
     }
   }
 };

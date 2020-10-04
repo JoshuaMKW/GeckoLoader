@@ -30,7 +30,7 @@ class InvalidGeckoCodeError(Exception): pass
 
 class GCT(object):
 
-    def __init__(self, f: open):
+    def __init__(self, f):
         self.codeList = BytesIO(f.read())
         self.rawLineCount = tools.stream_size(self.codeList) >> 3
         self.lineCount = self.rawLineCount - 2
@@ -38,7 +38,7 @@ class GCT(object):
         f.seek(0)
 
     @staticmethod
-    def determine_codelength(codetype, info) -> int:
+    def determine_codelength(codetype, info: bytes) -> int:
         if codetype.startswith(b'\x06'):
             bytelength = int.from_bytes(info, byteorder='big', signed=False)
             padding = get_alignment(bytelength, 8)
@@ -65,12 +65,11 @@ class GCT(object):
             return 0x8
 
     def optimize_codelist(self, dolFile: DolFile):
-        codelist = b''
-        codetype = b'temp'
+        codelist = b'\x00\xD0\xC0\xDE'*2
         skipcodes = 0
 
-        while codetype:
-            codetype = self.codeList.read(4)
+        self.codeList.seek(8)
+        while codetype := self.codeList.read(4):
             info = self.codeList.read(4)
             address = 0x80000000 | (int.from_bytes(codetype, byteorder='big', signed=False) & 0x01FFFFFF)
             try:
@@ -167,7 +166,8 @@ class GCT(object):
                     codelist += b'\xF0\x00\x00\x00\x00\x00\x00\x00'
                     break
 
-                self.codeList.seek(-8, 1)
+                self.codeList.seek(-8, 1)*5
+
                 length = GCT.determine_codelength(codetype, info)
                 while length > 0:
                     codelist += self.codeList.read(1)
@@ -218,7 +218,7 @@ class CodeHandler(object):
 
         f.seek(0)
 
-    def gecko_self(self, geckoText) -> str:
+    def parse_input(self, geckoText) -> str:
         with open(r'{}'.format(geckoText), 'rb') as gecko:
             result = chardet.detect(gecko.read())
             encodeType = result['encoding']
@@ -263,7 +263,7 @@ class CodeHandler(object):
         b1 ^= b2
         return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
 
-    def encrypt_data(self, key: int):
+    def encrypt_codes(self, key: int):
         self.geckoCodes.codeList.seek(0)
         i = 0
         while True:
@@ -304,7 +304,7 @@ class CodeHandler(object):
     def set_variables(self, dolFile: DolFile):
         varOffset = self.find_variable_data(b'\x00\xDE\xDE\xDE')
         if varOffset is None:
-            raise RuntimeError(tools.color_text("Variable codehandler data not found", defaultColor=tools.TREDLIT))
+            raise RuntimeError(tools.color_text("Variable codehandler data not found\n", defaultColor=tools.TREDLIT))
 
         self.set_hook_instruction(dolFile, self.hookAddress, varOffset, 0)
 
@@ -366,8 +366,6 @@ class KernelLoader(object):
         _key = random.randrange(0x100000000)
         self._rawData.seek(0)
 
-        sample = self._rawData.read(4)
-
         while sample := self._rawData.read(4):
             if sample == b'HEAP': #Found keyword "HEAP". Goes with the resize of the heap
                 self._rawData.seek(-4, 1)
@@ -420,7 +418,7 @@ class KernelLoader(object):
         self.set_variables(initpoint, _lowerAddr)
         
         if self.encrypt:
-            codeHandler.encrypt_data(_key)
+            codeHandler.encrypt_codes(_key)
 
 
     def patch_arena(self, codeHandler: CodeHandler, dolFile: DolFile):
@@ -438,8 +436,8 @@ class KernelLoader(object):
             try:
                 dolFile.append_data_sections([(_kernelData, self.initAddress)])
             except SectionCountFullError:
-                self.error(tools.color_text('There are no unused sections left for GeckoLoader to use!', defaultColor=tools.TREDLIT))
-                
+                self.error(tools.color_text('There are no unused sections left for GeckoLoader to use!\n', defaultColor=tools.TREDLIT))
+
         dolFile.entryPoint = self.initAddress
 
     def patch_legacy(self, codeHandler: CodeHandler, dolFile: DolFile):
@@ -454,12 +452,12 @@ class KernelLoader(object):
             try:
                 dolFile.append_data_sections([(_handlerData, codeHandler.initAddress)])
             except SectionCountFullError:
-                self.error(tools.color_text('There are no unused sections left for GeckoLoader to use!', defaultColor=tools.TREDLIT))
+                self.error(tools.color_text('There are no unused sections left for GeckoLoader to use!\n', defaultColor=tools.TREDLIT))
 
     def protect_game(self, codeHandler: CodeHandler):
         _oldpos = codeHandler.geckoCodes.codeList.tell()
 
-        protectdata = [b'\xC0\x00\x00\x00\x00\x00\x00\x17',
+        protectdata = (b'\xC0\x00\x00\x00\x00\x00\x00\x17',
 					   b'\x7C\x08\x02\xA6\x94\x21\xFF\x70',
                        b'\x90\x01\x00\x08\xBC\x61\x00\x0C',
                        b'\x48\x00\x00\x0D\x00\xD0\xC0\xDE',
@@ -482,7 +480,7 @@ class KernelLoader(object):
                        b'\x9C\xC4\x00\x01\x42\x00\xFF\xF0',
                        b'\xB8\x61\x00\x0C\x80\x01\x00\x08',
                        b'\x38\x21\x00\x90\x7C\x08\x03\xA6',
-                       b'\x4E\x80\x00\x20\x00\x00\x00\x00']
+                       b'\x4E\x80\x00\x20\x00\x00\x00\x00')
 
         codeHandler.geckoCodes.codeList.seek(-8, 2)
         for chunk in protectdata:
@@ -494,135 +492,137 @@ class KernelLoader(object):
 
     @timer
     def build(self, gctFile, dolFile: DolFile, codeHandler: CodeHandler, tmpdir, dump):
-        with open(dump, 'wb+') as final:
+        oldStart = dolFile.entryPoint
 
-            if dolFile.get_full_size() < 0x100:
-                self.error(tools.color_text('DOL header is corrupted. Please provide a clean file\n', defaultColor=tools.TREDLIT), exit=False)
-                return
-            
-            oldStart = dolFile.entryPoint
+        '''Initialize our codes'''
 
-            '''Initialize our codes'''
-
-            foundData = False
-
-            if '.' in gctFile:
-                if os.path.splitext(gctFile)[1].lower() == '.txt':
-                    with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
-                        temp.write(bytes.fromhex('00D0C0DE'*2 + codeHandler.gecko_self(gctFile) + 'F000000000000000'))
-                        temp.seek(0)
-                        codeHandler.geckoCodes = GCT(temp)
-                    foundData = True
-                elif os.path.splitext(gctFile)[1].lower() == '.gct':
-                    with open(gctFile, 'rb') as gct:
-                        codeHandler.geckoCodes = GCT(gct)
-                    foundData = True
-                    
-            else:
+        if '.' in gctFile:
+            if os.path.splitext(gctFile)[1].lower() == '.txt':
                 with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
-                    temp.write(b'\x00\xD0\xC0\xDE'*2)
-
-                    for file in os.listdir(gctFile):
-                        if os.path.isfile(os.path.join(gctFile, file)):
-                            if os.path.splitext(file)[1].lower() == '.txt':
-                                temp.write(bytes.fromhex(codeHandler.gecko_self(os.path.join(gctFile, file))))  
-                                foundData = True
-                            elif os.path.splitext(file)[1].lower() == '.gct':
-                                with open(os.path.join(gctFile, file), 'rb') as gct:
-                                    temp.write(gct.read()[8:-8])
-                                foundData = True
-                            else:
-                                print(tools.color_text(f'  :: HINT: {file} is not a .txt or .gct file', defaultColor=tools.TYELLOWLIT))
-                
-                    temp.write(b'\xF0\x00\x00\x00\x00\x00\x00\x00')
+                    temp.write(bytes.fromhex('00D0C0DE'*2 + codeHandler.parse_input(gctFile) + 'F000000000000000'))
                     temp.seek(0)
                     codeHandler.geckoCodes = GCT(temp)
+            elif os.path.splitext(gctFile)[1].lower() == '.gct':
+                with open(gctFile, 'rb') as gct:
+                    codeHandler.geckoCodes = GCT(gct)
+        else:
+            with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
+                temp.write(b'\x00\xD0\xC0\xDE'*2)
 
-            if not foundData:
-                self.error(tools.color_text('No valid gecko code file found\n', defaultColor=tools.TREDLIT), exit=False)
-                return
-
-            if self.protect and self.patchJob == "ARENA":
-                self.protect_game(codeHandler)
-
-            if self.patchJob == 'AUTO':
-                if codeHandler.initAddress + codeHandler.handlerLength + codeHandler.geckoCodes.size > 0x80002FFF:
-                    self.patchJob = 'ARENA'
-                else:
-                    self.patchJob = 'LEGACY'
-
-            '''Get entrypoint (or BSS midpoint) for insert'''
-
-            if self.initAddress:
-                try:
-                    dolFile.resolve_address(self.initAddress)
-                    print(tools.color_text(f'\n  :: WARNING: Init address specified for GeckoLoader (0x{self.initAddress:X}) clobbers existing dol sections', defaultColor=tools.TYELLOW))
-                except RuntimeError:
-                    pass
-            else:
-                self.initAddress = dolFile.seek_nearest_unmapped(dolFile.bssAddress, len(self._rawData.getbuffer()) + codeHandler.handlerLength + codeHandler.geckoCodes.size)
-                self._rawData.seek(0)
-
-            '''Is insertion legacy?'''
-
-            if codeHandler.geckoCodes.size <= 0x10:
-                dolFile.save(final)
-                if self.verbosity >= 1:
-                    print(tools.color_text('\n  :: All codes have been successfully pre patched', defaultColor=tools.TGREENLIT))
-                return
-
-            if self.patchJob == 'LEGACY':
-                codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
-                codeHandler.set_variables(dolFile)
-                hooked = determine_codehook(dolFile, codeHandler, True)
-                self.patch_legacy(codeHandler, dolFile)
-                legacy = True
-            else:
-                hooked = determine_codehook(dolFile, codeHandler, False)
-                self.patch_arena(codeHandler, dolFile)
-                legacy = False
+                for file in os.listdir(gctFile):
+                    if os.path.isfile(os.path.join(gctFile, file)):
+                        if os.path.splitext(file)[1].lower() == '.txt':
+                            temp.write(bytes.fromhex(codeHandler.parse_input(os.path.join(gctFile, file))))
+                        elif os.path.splitext(file)[1].lower() == '.gct':
+                            with open(os.path.join(gctFile, file), 'rb') as gct:
+                                temp.write(gct.read()[8:-8])
+                        else:
+                            print(tools.color_text(f'  :: HINT: {file} is not a .txt or .gct file', defaultColor=tools.TYELLOWLIT))
             
-            if not hooked:
-                self.error(tools.color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=tools.TREDLIT))
-            elif codeHandler.allocation < codeHandler.geckoCodes.size:
-                self.error(tools.color_text('\n  :: Error: Allocated codespace was smaller than the given codelist.\n', defaultColor=tools.TYELLOW))
-                
-            dolFile.save(final)
+                temp.write(b'\xF0\x00\x00\x00\x00\x00\x00\x00')
+                temp.seek(0)
+                codeHandler.geckoCodes = GCT(temp)
+
+        if codeHandler.geckoCodes is None:
+            self.error(tools.color_text('Valid codelist not found. Please provide a .txt/.gct file, or a folder of .txt/.gct files\n', defaultColor=tools.TREDLIT))
+
+        if self.protect and self.patchJob == "ARENA":
+            self.protect_game(codeHandler)
+            
+        if self.patchJob == 'AUTO':
+            if codeHandler.initAddress + codeHandler.handlerLength + codeHandler.geckoCodes.size > 0x80002FFF:
+                self.patchJob = 'ARENA'
+            else:
+                self.patchJob = 'LEGACY'
+
+        '''Get entrypoint (or BSS midpoint) for insert'''
+
+        if self.initAddress:
+            try:
+                dolFile.resolve_address(self.initAddress)
+                print(tools.color_text(f'\n  :: WARNING: Init address specified for GeckoLoader (0x{self.initAddress:X}) clobbers existing dol sections', defaultColor=tools.TYELLOW))
+            except RuntimeError:
+                pass
+        else:
+            self.initAddress = dolFile.seek_nearest_unmapped(dolFile.bssAddress, len(self._rawData.getbuffer()) + codeHandler.handlerLength + codeHandler.geckoCodes.size)
+            self._rawData.seek(0)
+
+        if codeHandler.optimizeList:
+            codeHandler.geckoCodes.optimize_codelist(dolFile)
+
+        '''Is codelist optimized away?'''
+
+        if codeHandler.geckoCodes.codeList.getvalue() == b'\x00\xD0\xC0\xDE\x00\xD0\xC0\xDE\xF0\x00\x00\x00\x00\x00\x00\x00':
+            with open(dump, 'wb') as final:
+                dolFile.save(final)
 
             if self.quiet:
                 return
+            if self.verbosity >= 3:
+                dolFile.print_info()
+                print('-'*64)
+            if self.verbosity >= 1:
+                print(tools.color_text('\n  :: All codes have been successfully pre patched', defaultColor=tools.TGREENLIT))
 
-            if codeHandler.allocation > 0x70000:
-                print(tools.color_text(f'\n  :: WARNING: Allocations beyond 0x70000 will crash certain games. You allocated 0x{codeHandler.allocation:X}', defaultColor=tools.TYELLOW))
+            return
+
+        if self.patchJob == 'LEGACY':
+            codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
+            codeHandler.set_variables(dolFile)
+            hooked = determine_codehook(dolFile, codeHandler, True)
+            self.patch_legacy(codeHandler, dolFile)
+            legacy = True
+        else:
+            hooked = determine_codehook(dolFile, codeHandler, False)
+            self.patch_arena(codeHandler, dolFile)
+            legacy = False
+        
+        if not hooked:
+            self.error(tools.color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=tools.TREDLIT))
+        elif codeHandler.allocation < codeHandler.geckoCodes.size:
+            self.error(tools.color_text('\n  :: Error: Allocated codespace was smaller than the given codelist.\n', defaultColor=tools.TYELLOW))
             
-            elif codeHandler.allocation > 0x40000:
-                print(tools.color_text(f'\n  :: HINT: Recommended allocation limit is 0x40000. You allocated 0x{codeHandler.allocation:X}', defaultColor=tools.TYELLOWLIT))
+        with open(dump, 'wb') as final:
+            dolFile.save(final)
+
+        if self.quiet:
+            return
+
+        if codeHandler.allocation > 0x70000:
+            print(tools.color_text(f'\n  :: WARNING: Allocations beyond 0x70000 will crash certain games. You allocated 0x{codeHandler.allocation:X}', defaultColor=tools.TYELLOW))
         
-            if self.verbosity >= 2:
-                print('')
-                if legacy == False:
-                    info = [f'  :: Start of game modified to address 0x{self.initAddress:X}',
-                            f'  :: Game function "__start()" located at address 0x{oldStart:X}',
-                            f'  :: Allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
-                            f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}',
-                            f'  :: Codehandler is of type "{codeHandler.type}"',
-                            f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} are now being used']
-                else:
-                    info = [f'  :: Game function "__start()" located at address 0x{oldStart:X}',
-                            f'  :: Allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
-                            f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}',
-                            f'  :: Codehandler is of type "{codeHandler.type}"',
-                            f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} are now being used']
-                for bit in info:
-                    print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
-        
-            elif self.verbosity >= 1:
-                print('')
-                info = [f'  :: GeckoLoader set at address 0x{self.initAddress:X}',
-                        f'  :: Legacy size is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
-                        f'  :: Codehandler is of type "{codeHandler.type}"']
-                for bit in info:
-                    print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
+        elif codeHandler.allocation > 0x40000:
+            print(tools.color_text(f'\n  :: HINT: Recommended allocation limit is 0x40000. You allocated 0x{codeHandler.allocation:X}', defaultColor=tools.TYELLOWLIT))
+    
+        if self.verbosity >= 3:
+            dolFile.print_info()
+            print('-'*64)
+            
+        if self.verbosity >= 2:
+            print('')
+            if legacy == False:
+                info = [f'  :: Start of game modified to address 0x{self.initAddress:X}',
+                        f'  :: Game function "__start()" located at address 0x{oldStart:X}',
+                        f'  :: Allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                        f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}',
+                        f'  :: Codehandler is of type "{codeHandler.type}"',
+                        f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} are now being used']
+            else:
+                info = [f'  :: Game function "__start()" located at address 0x{oldStart:X}',
+                        f'  :: Allocation is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                        f'  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}',
+                        f'  :: Codehandler is of type "{codeHandler.type}"',
+                        f'  :: Of the 7 text sections in this DOL file, {len(dolFile.textSections)} are now being used']
+            for bit in info:
+                print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
+    
+        elif self.verbosity >= 1:
+            print('')
+            info = [f'  :: GeckoLoader set at address 0x{self.initAddress:X}',
+                    f'  :: Legacy size is 0x{codeHandler.allocation:X}; codelist size is 0x{codeHandler.geckoCodes.size:X}',
+                    f'  :: Codehandler is of type "{codeHandler.type}"']
+            for bit in info:
+                print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
 
 
 def resource_path(relative_path: str):
