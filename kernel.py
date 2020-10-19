@@ -8,7 +8,7 @@ from io import BytesIO
 
 import tools
 from fileutils import *
-from dolreader import DolFile, SectionCountFullError
+from dolreader import DolFile, SectionCountFullError, UnmappedAddressError
 
 try:
     import chardet
@@ -173,7 +173,7 @@ class GCT(object):
                     codelist += self.codeList.read(1)
                     length -= 1
 
-            except RuntimeError:
+            except (RuntimeError, UnmappedAddressError):
                 self.codeList.seek(-8, 1)
                 length = GCT.determine_codelength(codetype, info)
                 codelist += self.codeList.read(length)
@@ -295,8 +295,10 @@ class CodeHandler(object):
         dolFile.seek(address)
         ppc = read_uint32(dolFile)
 
-        if (((ppc >> 24) & 0xFF) > 0x47 and ((ppc >> 24) & 0xFF) < 0x4C):
-            to = dolFile.extract_branch_addr(address)
+        if ((((ppc >> 24) & 0xFF) > 0x47 and ((ppc >> 24) & 0xFF) < 0x4C) or (((ppc >> 24) & 0xFF) > 0x3F and ((ppc >> 24) & 0xFF) < 0x44)):
+            to, conditional = dolFile.extract_branch_addr(address)
+            if conditional:
+                raise NotImplementedError("Hooking to a conditional non spr branch is unsupported")
             write_uint32(self._rawData, (to - (self.initAddress + varOffset)) & 0x3FFFFFD | 0x48000000 | lk)
         else:
             write_uint32(self._rawData, ppc)
@@ -385,7 +387,7 @@ class KernelLoader(object):
                 self._rawData.seek(-4, 1)
                 write_uint32(self._rawData, len(self._rawData.getbuffer()))
                     
-            elif sample == b'HSIZ': #Found keyword "HSIZ". Goes with the size of the codeHandler
+            elif sample == b'HSIZ': #Found keyword "HSIZ". Goes with the size of the codehandler
                 self._rawData.seek(-4, 1)
                 write_sint32(self._rawData, codeHandler.handlerLength)
             
@@ -567,15 +569,16 @@ class KernelLoader(object):
             return
 
         if self.patchJob == 'LEGACY':
-            codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
-            codeHandler.set_variables(dolFile)
-            hooked = determine_codehook(dolFile, codeHandler, True)
-            self.patch_legacy(codeHandler, dolFile)
             legacy = True
+            codeHandler.allocation = 0x80003000 - (codeHandler.initAddress + codeHandler.handlerLength)
+            hooked = determine_codehook(dolFile, codeHandler, True)
+            if hooked:
+                self.patch_legacy(codeHandler, dolFile)
         else:
-            hooked = determine_codehook(dolFile, codeHandler, False)
-            self.patch_arena(codeHandler, dolFile)
             legacy = False
+            hooked = determine_codehook(dolFile, codeHandler, False)
+            if hooked:
+                self.patch_arena(codeHandler, dolFile)
         
         if not hooked:
             self.error(tools.color_text('Failed to find a hook address. Try using option --codehook to use your own address\n', defaultColor=tools.TREDLIT))
@@ -636,7 +639,9 @@ def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
             return False
     
     if hook:
+        codeHandler.set_variables(dolFile)
         insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
+        
     return True
 
 

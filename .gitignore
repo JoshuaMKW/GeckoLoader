@@ -133,3 +133,4 @@ dmypy.json
 
 # Gct files
 *.gct
+installer.py
