@@ -3,7 +3,7 @@ from cx_Freeze import setup, Executable
 
 options = {
     'build_exe': {
-        'optimize': 2,
+        'optimize': 4,
         'excludes': ['tkinter']
     }
 }
