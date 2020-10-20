@@ -218,6 +218,34 @@ class CodeHandler(object):
 
         f.seek(0)
 
+    def init_gct(self, gctFile: str, tmpdir: str=""):
+        if '.' in gctFile:
+            if os.path.splitext(gctFile)[1].lower() == '.txt':
+                with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
+                    temp.write(bytes.fromhex('00D0C0DE'*2 + self.parse_input(gctFile) + 'F000000000000000'))
+                    temp.seek(0)
+                    self.geckoCodes = GCT(temp)
+            elif os.path.splitext(gctFile)[1].lower() == '.gct':
+                with open(gctFile, 'rb') as gct:
+                    self.geckoCodes = GCT(gct)
+        else:
+            with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
+                temp.write(b'\x00\xD0\xC0\xDE'*2)
+
+                for file in os.listdir(gctFile):
+                    if os.path.isfile(os.path.join(gctFile, file)):
+                        if os.path.splitext(file)[1].lower() == '.txt':
+                            temp.write(bytes.fromhex(self.parse_input(os.path.join(gctFile, file))))
+                        elif os.path.splitext(file)[1].lower() == '.gct':
+                            with open(os.path.join(gctFile, file), 'rb') as gct:
+                                temp.write(gct.read()[8:-8])
+                        else:
+                            print(tools.color_text(f'  :: HINT: {file} is not a .txt or .gct file', defaultColor=tools.TYELLOWLIT))
+            
+                temp.write(b'\xF0\x00\x00\x00\x00\x00\x00\x00')
+                temp.seek(0)
+                self.geckoCodes = GCT(temp)
+
     def parse_input(self, geckoText) -> str:
         with open(r'{}'.format(geckoText), 'rb') as gecko:
             result = chardet.detect(gecko.read())
@@ -498,32 +526,7 @@ class KernelLoader(object):
 
         '''Initialize our codes'''
 
-        if '.' in gctFile:
-            if os.path.splitext(gctFile)[1].lower() == '.txt':
-                with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
-                    temp.write(bytes.fromhex('00D0C0DE'*2 + codeHandler.parse_input(gctFile) + 'F000000000000000'))
-                    temp.seek(0)
-                    codeHandler.geckoCodes = GCT(temp)
-            elif os.path.splitext(gctFile)[1].lower() == '.gct':
-                with open(gctFile, 'rb') as gct:
-                    codeHandler.geckoCodes = GCT(gct)
-        else:
-            with open(os.path.join(tmpdir, 'gct.bin'), 'wb+') as temp:
-                temp.write(b'\x00\xD0\xC0\xDE'*2)
-
-                for file in os.listdir(gctFile):
-                    if os.path.isfile(os.path.join(gctFile, file)):
-                        if os.path.splitext(file)[1].lower() == '.txt':
-                            temp.write(bytes.fromhex(codeHandler.parse_input(os.path.join(gctFile, file))))
-                        elif os.path.splitext(file)[1].lower() == '.gct':
-                            with open(os.path.join(gctFile, file), 'rb') as gct:
-                                temp.write(gct.read()[8:-8])
-                        else:
-                            print(tools.color_text(f'  :: HINT: {file} is not a .txt or .gct file', defaultColor=tools.TYELLOWLIT))
-            
-                temp.write(b'\xF0\x00\x00\x00\x00\x00\x00\x00')
-                temp.seek(0)
-                codeHandler.geckoCodes = GCT(temp)
+        codeHandler.init_gct(gctFile, tmpdir)
 
         if codeHandler.geckoCodes is None:
             self.error(tools.color_text('Valid codelist not found. Please provide a .txt/.gct file, or a folder of .txt/.gct files\n', defaultColor=tools.TREDLIT))
@@ -641,7 +644,7 @@ def determine_codehook(dolFile: DolFile, codeHandler: CodeHandler, hook=False):
     if hook:
         codeHandler.set_variables(dolFile)
         insert_code_hook(dolFile, codeHandler, codeHandler.hookAddress)
-        
+
     return True
 
 
