@@ -36,7 +36,7 @@ except ImportError:
 
 __version__ = 'v6.2.0'
 
-def resource_path(relative_path: str):
+def resource_path(relative_path: str = ""):
     """ Get absolute path to resource, works for dev and for PyInstaller """
     base_path = os.path.dirname(os.path.realpath(sys.argv[0]))
     return os.path.join(base_path, relative_path)
@@ -62,7 +62,7 @@ def clean_tmp_resources():
 class GeckoLoaderCli(CommandLineParser):
 
     def __init__(self, name, version=None, description=''):
-        super().__init__(prog=(name+' '+version), description=description, allow_abbrev=False)
+        super().__init__(prog=(f"{name} {version}"), description=description, allow_abbrev=False)
         self.__version__ = version
         self.__doc__ = description
 
@@ -123,6 +123,9 @@ class GeckoLoaderCli(CommandLineParser):
                         action='store_true')
         self.add_argument('--encrypt',
                         help='Encrypts the codelist on compile time, helping to slow the snoopers',
+                        action='store_true')
+        self.add_argument('--disablecolor',
+                        help='Disables the colorization of text output',
                         action='store_true')
         self.add_argument('-q', '--quiet',
                         help='Print nothing to the console',
@@ -193,7 +196,7 @@ class GeckoLoaderCli(CommandLineParser):
         sys.exit(0)
 
 if __name__ == "__main__":
-    parser = GeckoLoaderCli('GeckoLoader ' + __version__, __version__, description='Dol editing tool for allocating extended codespace')
+    parser = GeckoLoaderCli('GeckoLoader', __version__, description='Dol editing tool for allocating extended codespace')
 
     if len(sys.argv) == 1:
         parser.print_splash()
