@@ -310,6 +310,9 @@ class GUI(object):
 
         self.log = logging.getLogger(f"GeckoLoader {self.cli.__version__}")
 
+        if not os.path.exists(get_program_folder("GeckoLoader")):
+            os.mkdir(get_program_folder("GeckoLoader"))
+            
         hdlr = logging.FileHandler(os.path.join(get_program_folder("GeckoLoader"), "error.log"))
         formatter = logging.Formatter("\n%(levelname)s (%(asctime)s): %(message)s")
         hdlr.setFormatter(formatter)
