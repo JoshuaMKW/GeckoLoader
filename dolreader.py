@@ -361,17 +361,37 @@ class DolFile(object):
 
         for i, (offset, addr, size, _, _) in enumerate(self.textSections):
             header = f"|  Text section {i}  |"
-            print("-"*len(header) + "\n" + header + "\n" + "-"*len(header) + f"\n File offset:\t0x{offset:X}\n Virtual addr:\t0x{addr:X}\n Size:\t\t0x{size:X}\n")
+            info = [ "-"*len(header) + "\n" + header + "\n" + "-"*len(header), 
+                     "File Offset:".ljust(16, " ") + f"0x{offset:X}", 
+                     "Virtual addr:".ljust(16, " ") + f"0x{addr:X}",
+                     "Size:".ljust(16, " ") + f"0x{size:X}" ]
+                     
+            print("\n".join(info) + "\n")
         
         for i, (offset, addr, size, _, _) in enumerate(self.dataSections):
             header = f"|  Data section {i}  |"
-            print("-"*len(header) + "\n" + header + "\n" + "-"*len(header) + f"\n File offset:\t0x{offset:X}\n Virtual addr:\t0x{addr:X}\n Size:\t\t0x{size:X}\n")
+            info = [ "-"*len(header) + "\n" + header + "\n" + "-"*len(header), 
+                     "File Offset:".ljust(16, " ") + f"0x{offset:X}", 
+                     "Virtual addr:".ljust(16, " ") + f"0x{addr:X}",
+                     "Size:".ljust(16, " ") + f"0x{size:X}" ]
+
+            print("\n".join(info) + "\n")
 
         header = "|  BSS section  |"  
-        print("-"*len(header) + "\n" + header + "\n" + "-"*len(header) + f"\n Virtual addr:\t0x{self.bssAddress:X}\n Size:\t\t0x{self.bssSize:X}\n End:\t\t0x{self.bssAddress+self.bssSize:X}\n")
+        info = [ "-"*len(header) + "\n" + header + "\n" + "-"*len(header),
+                 "Virtual addr:".ljust(16, " ") + f"0x{self.bssAddress:X}",
+                 "Size:".ljust(16, " ") + f"0x{self.bssSize:X}",
+                 "End:".ljust(16, " ") + f"0x{self.bssAddress+self.bssSize:X}" ]
+
+        print("\n".join(info) + "\n")
         
         header = "|  Miscellaneous Info  |"
-        print("-"*len(header) + "\n" + header + "\n" + "-"*len(header) + f"\n Text sections:\t{len(self.textSections)}\n Data sections:\t{len(self.dataSections)}\n File length:\t0x{self.get_full_size():X} bytes\n")
+        info = [ "-"*len(header) + "\n" + header + "\n" + "-"*len(header),
+                 "Text sections:".ljust(16, " ") + f"0x{len(self.textSections):X}",
+                 "Data sections:".ljust(16, " ") + f"0x{len(self.dataSections):X}",
+                 "File length:".ljust(16, " ") + f"0x{self.get_full_size():X}" ]
+
+        print("\n".join(info) + "\n")
 
 if __name__ == "__main__":
     # Example usage (Reading global string "mario" from Super Mario Sunshine (NTSC-U))

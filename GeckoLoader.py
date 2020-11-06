@@ -307,12 +307,13 @@ class GUI(object):
         self.sessionPath = None
         self.prefs = {"qtstyle": "Default", "darktheme": False}
         self.style_log = []
+        self.compileCount = 0
 
         self.log = logging.getLogger(f"GeckoLoader {self.cli.__version__}")
 
         if not os.path.exists(get_program_folder("GeckoLoader")):
             os.mkdir(get_program_folder("GeckoLoader"))
-            
+
         hdlr = logging.FileHandler(os.path.join(get_program_folder("GeckoLoader"), "error.log"))
         formatter = logging.Formatter("\n%(levelname)s (%(asctime)s): %(message)s")
         hdlr.setFormatter(formatter)
@@ -526,7 +527,7 @@ class GUI(object):
     def close_session(self):
         self.dolPath = None
         self.codePath = None
-        self.gctData = None
+        self.sessionPath = None
         self.ui.dolTextBox.setText("")
         self.ui.gctFileTextBox.setText("")
         self.ui.gctFolderTextBox.setText("")
@@ -698,6 +699,9 @@ class GUI(object):
         self.uiexSettings.kernelHookLineEdit.textChanged.connect(lambda: self._enforce_mask(self.uiexSettings.kernelHookLineEdit, 0x817FFFFC, 0x80000000))
 
     def _exec_api(self):
+        self.ui.responses.appendPlainText(f"| Session {self.compileCount} |".center(84, "=") + "\n")
+        self.compileCount += 1
+
         if self.ui.dolTextBox.isEnabled and self.ui.dolTextBox.text().strip() != "":
             dol = os.path.normpath(self.ui.dolTextBox.text().strip())
         else:
@@ -789,8 +793,7 @@ class GUI(object):
             self.ui.responses.appendPlainText(_msg.strip() + "\n")
         else:
             for line in self._remove_ansi(_outpipe.getvalue()).split("\n"):
-                if line.strip() != "":
-                    _msg += line.lstrip()
+                _msg += line.lstrip() + "\n"
             self.ui.responses.appendPlainText(_msg.strip() + "\n")
     
     def run(self):
