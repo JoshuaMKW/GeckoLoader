@@ -45,7 +45,7 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-__version__ = "v6.3.0"
+__version__ = "v7.0.0"
 
 TMPDIR = tempfile.mkdtemp("GeckoLoader-")
 

@@ -13,7 +13,7 @@ executables = [
 ]
 
 setup(name='GeckoLoader',
-      version='v6.0.1',
+      version='v7.0.0',
       description='DOL Patcher for extending the codespace of Wii/GC games',
       executables=executables,
       options=options
