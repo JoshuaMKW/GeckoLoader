@@ -14,7 +14,7 @@ class Updater(object):
             html = response.read()
         return html
 
-    def get_newest_version(self) -> str:
+    def get_newest_version(self) -> tuple:
         """ Returns newest release version """
         try:
             response = self.request_release_data()

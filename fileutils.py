@@ -1,5 +1,34 @@
-from tools import get_alignment, align_byte_size
+import os
 import struct
+import sys
+
+from tools import align_byte_size, get_alignment
+
+def resource_path(relative_path: str = "") -> str:
+    """ Get absolute path to resource, works for dev and for cx_freeze """
+    if getattr(sys, "frozen", False):
+        # The application is frozen
+        base_path = os.path.dirname(sys.executable)
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        
+    return os.path.join(base_path, relative_path)
+
+def get_program_folder(folder: str = "") -> str:
+    """ Get path to appdata """
+    if sys.platform == "win32":
+        datapath = os.path.join(os.getenv("APPDATA"), folder)
+    elif sys.platform == "darwin":
+        if folder:
+            folder = "." + folder
+        datapath = os.path.join(os.path.expanduser("~"), "Library", "Application Support", folder)
+    elif "linux" in sys.platform:
+        if folder:
+            folder = "." + folder
+        datapath = os.path.join(os.getenv("HOME"), folder)
+    else:
+        raise NotImplementedError(f"{sys.platform} OS is unsupported")
+    return datapath
 
 def read_sbyte(f):
     return struct.unpack("b", f.read(1))[0]
