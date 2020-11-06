@@ -133,6 +133,3 @@ dmypy.json
 
 # Gct files
 *.gct
-installer.py
-children_ui.py
-gui.py
