@@ -71,7 +71,12 @@ class SettingsWindow(QtWidgets.QDialog):
 
     def setup_ui(self):
         self.setObjectName("Dialog")
-        self.setFixedSize(300, 210)
+        
+        if sys.platform == "win32":
+            self.setFixedSize(300, 210)
+        else:
+            self.setFixedSize(370, 210)
+            
         self.setModal(True)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(resource_path(os.path.join("bin", "icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -79,7 +84,12 @@ class SettingsWindow(QtWidgets.QDialog):
 
         #Buttonbox
         self.buttonBox = QtWidgets.QDialogButtonBox(self)
-        self.buttonBox.setFixedSize(280, 30)
+
+        if sys.platform == "win32":
+            self.buttonBox.setFixedSize(280, 30)
+        else:
+            self.buttonBox.setFixedSize(350, 30)
+
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
         self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
         self.buttonBox.setObjectName("buttonBox")

@@ -1,7 +1,7 @@
 from io import BytesIO
 
 import tools
-from fileutils import *
+from fileutils import read_uint32, write_uint32, align_byte_size
 
 class UnmappedAddressError(Exception): pass
 class SectionCountFullError(Exception): pass
@@ -9,7 +9,7 @@ class AddressOutOfRangeError(Exception): pass
 
 class DolFile(object):
 
-    class SectionType():
+    class SectionType:
         Text = 0
         Data = 1
 
@@ -64,7 +64,7 @@ class DolFile(object):
         return "Nintendo DOL format executable for the Wii and Gamecube"
         
     # Internal function for 
-    def resolve_address(self, gcAddr) -> tuple:
+    def resolve_address(self, gcAddr: int) -> tuple:
         """ Returns the data of the section that houses the given address\n
             UnmappedAddressError is raised when the address is unmapped """
 
@@ -77,7 +77,7 @@ class DolFile(object):
         
         raise UnmappedAddressError(f"Unmapped address: 0x{gcAddr:X}")
 
-    def seek_nearest_unmapped(self, gcAddr, buffer=0) -> int:
+    def seek_nearest_unmapped(self, gcAddr: int, buffer=0) -> int:
         '''Returns the nearest unmapped address (greater) if the given address is already taken by data'''
         
         for _, address, size, _, _ in self.textSections:
@@ -316,10 +316,7 @@ class DolFile(object):
         self.seek(bAddr)
 
         ppc = read_uint32(self)
-        conditional = False
-
-        if (ppc >> 24) & 0xFF < 0x48:
-            conditional = True
+        conditional = (ppc >> 24) & 0xFF < 0x48
 
         if conditional is True:
             if (ppc & 0x8000):

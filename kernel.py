@@ -48,10 +48,9 @@ class GCT(object):
             or codetype.startswith(b'\x18') or codetype.startswith(b'\x18')):
             return 0x16
 
-        elif (codetype.startswith(b'\xC2') or codetype.startswith(b'\xC4')
-            or codetype.startswith(b'\xC3') or codetype.startswith(b'\xC5')
-            or codetype.startswith(b'\xD2') or codetype.startswith(b'\xD4')
-            or codetype.startswith(b'\xD3') or codetype.startswith(b'\xD5')):
+        elif (codetype.startswith(b'\xC0') or codetype.startswith(b'\xC2') or codetype.startswith(b'\xC4')
+            or codetype.startswith(b'\xC3') or codetype.startswith(b'\xC5') or codetype.startswith(b'\xD2')
+            or codetype.startswith(b'\xD4') or codetype.startswith(b'\xD3') or codetype.startswith(b'\xD5')):
             return 0x8 + (int.from_bytes(info, byteorder='big', signed=False) << 3)
 
         elif (codetype.startswith(b'\xF2') or codetype.startswith(b'\xF3')
@@ -68,10 +67,13 @@ class GCT(object):
         codelist = b'\x00\xD0\xC0\xDE'*2
         skipcodes = 0
 
+        with open(os.path.join(os.path.expanduser("~"), "Desktop", "suss.gct"), "wb") as suss:
+            suss.write(self.codeList.getbuffer())
+
         self.codeList.seek(8)
         while codetype := self.codeList.read(4):
             info = self.codeList.read(4)
-            address = 0x80000000 | (int.from_bytes(codetype, byteorder='big', signed=False) & 0x01FFFFFF)
+            address = 0x80000000 | (int.from_bytes(codetype, byteorder='big', signed=False) & 0x1FFFFFF)
             try:
                 if skipcodes <= 0:
                     if (codetype.startswith(b'\x00') or codetype.startswith(b'\x01')
@@ -153,7 +155,7 @@ class GCT(object):
                     elif (codetype.startswith(b'\xC6') or codetype.startswith(b'\xC7')
                         or codetype.startswith(b'\xC6') or codetype.startswith(b'\xC7')):
                         dolFile.seek(address)
-                        dolFile.insert_branch(int.from_bytes(info, byteorder='big', signed=False), dolFile.tell())
+                        dolFile.insert_branch(int.from_bytes(info, byteorder='big', signed=False), address)
                         continue
 
                 if codetype.hex().startswith('2') or codetype.hex().startswith('3'):
@@ -166,7 +168,7 @@ class GCT(object):
                     codelist += b'\xF0\x00\x00\x00\x00\x00\x00\x00'
                     break
 
-                self.codeList.seek(-8, 1)*5
+                self.codeList.seek(-8, 1)
 
                 length = GCT.determine_codelength(codetype, info)
                 while length > 0:
