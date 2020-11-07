@@ -15,6 +15,7 @@
 **DOL File**
 
 `GeckoLoader` needs a valid `dol` file to patch with your codes. Simply supply the path to your `dol` file in either the GUI or the CLI
+
 `GeckoLoader` also supports patching the same `dol` file multiple times until the file becomes filled with section data.
 
 **Steps to compile GeckoLoader**
