@@ -699,7 +699,11 @@ class GUI(object):
         self.uiexSettings.kernelHookLineEdit.textChanged.connect(lambda: self._enforce_mask(self.uiexSettings.kernelHookLineEdit, 0x817FFFFC, 0x80000000))
 
     def _exec_api(self):
-        self.ui.responses.appendPlainText(f"| Session {self.compileCount} |".center(84, "=") + "\n")
+        if sys.platform == "win32":
+            self.ui.responses.appendPlainText(f"| Session {self.compileCount} |".center(84, "=") + "\n")
+        else:
+            self.ui.responses.appendPlainText(f"| Session {self.compileCount} |".center(76, "=") + "\n")
+
         self.compileCount += 1
 
         if self.ui.dolTextBox.isEnabled and self.ui.dolTextBox.text().strip() != "":
