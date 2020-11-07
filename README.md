@@ -25,6 +25,7 @@ Run the installer and choose to install `GeckoLoader`
 Then you can do either:
    1. In command prompt, input `GeckoLoader -h` for help on syntax and options
    2. Run the command `GeckoLoader <dol> <codelist> <options>` filling in the variables as needed
+
 Or:
    1. Fill out the relevant data in the GUI
    2. Click the RUN button
