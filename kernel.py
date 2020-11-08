@@ -113,10 +113,7 @@ class GCT(object):
                         arraylength = int.from_bytes(info, byteorder='big', signed=False)
                         padding = get_alignment(arraylength, 8)
                         
-                        while arraylength > 0:
-                            value = self.codeList.read(1)
-                            dolFile.write(value)
-                            arraylength -= 1
+                        dolFile.write(self.codeList.read(arraylength))
 
                         self.codeList.seek(padding, 1)
                         continue
@@ -169,16 +166,11 @@ class GCT(object):
                     break
 
                 self.codeList.seek(-8, 1)
-
-                length = GCT.determine_codelength(codetype, info)
-                while length > 0:
-                    codelist += self.codeList.read(1)
-                    length -= 1
+                codelist += self.codeList.read(GCT.determine_codelength(codetype, info))
 
             except (RuntimeError, UnmappedAddressError):
                 self.codeList.seek(-8, 1)
-                length = GCT.determine_codelength(codetype, info)
-                codelist += self.codeList.read(length)
+                codelist += self.codeList.read(GCT.determine_codelength(codetype, info))
 
         self.codeList = BytesIO(codelist)
         self.size = len(self.codeList.getbuffer())
