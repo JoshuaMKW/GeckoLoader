@@ -124,7 +124,7 @@ class GCT(object):
 
                         value = int.from_bytes(info, byteorder='big', signed=False)
                         data = read_uint16(self.codeList)
-                        size = data & 0x3000
+                        size = data & 0x3
                         counter = data & 0xFFF
                         address_increment = read_uint16(self.codeList)
                         value_increment = read_uint32(self.codeList)
@@ -151,8 +151,7 @@ class GCT(object):
 
                     elif (codetype.startswith(b'\xC6') or codetype.startswith(b'\xC7')
                         or codetype.startswith(b'\xC6') or codetype.startswith(b'\xC7')):
-                        dolFile.seek(address)
-                        dolFile.insert_branch(int.from_bytes(info, byteorder='big', signed=False), address)
+                        dolFile.insert_branch(int.from_bytes(info, byteorder='big', signed=False), address, lk=address&1)
                         continue
 
                 if codetype.hex().startswith('2') or codetype.hex().startswith('3'):

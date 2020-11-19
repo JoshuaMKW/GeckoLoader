@@ -306,11 +306,14 @@ class DolFile(object):
             _from: address to branch from\n
             lk:    0 | 1, is branch linking? """
 
+        _from &= 0xFFFFFFFC
+        to &= 0xFFFFFFFC
         self.seek(_from)
+        print(hex(to), hex(_from), hex((to - _from) & 0x3FFFFFD | 0x48000000 | lk))
         write_uint32(self, (to - _from) & 0x3FFFFFD | 0x48000000 | lk)
 
     def extract_branch_addr(self, bAddr: int) -> tuple:
-        """ Returns the branch offset of the given instruction,
+        """ Returns the destination of the given branch,
             and if the branch is conditional """
 
         self.seek(bAddr)
