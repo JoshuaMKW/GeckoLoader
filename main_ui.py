@@ -13,11 +13,6 @@ from dolreader import DolFile
 from fileutils import resource_path
 from kernel import CodeHandler, KernelLoader
 
-class CmdWrapper(object):
-    @staticmethod
-    def call(prog: str, *args):
-        return subprocess.run(" ".join([prog, *args]), shell=True, capture_output=True, text=True)
-
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, version: str):
         super().__init__()
@@ -71,7 +66,7 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setWeight(42)
         self.setFont(font)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(resource_path(os.path.join("bin", "icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(resource_path(os.path.join("bin", "icon.ico")))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.setWindowIcon(icon)
 
         #Top level widget
@@ -346,34 +341,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.allocLineEdit.setObjectName("allocLineEdit")
         self.optionsLayout.addWidget(self.allocLineEdit, 2, 0, 1, 1)
 
-        #Patch label
-        self.patchLabel = QtWidgets.QLabel(self.centerWidget)
-        self.patchLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.patchLabel.sizePolicy().hasHeightForWidth())
-        self.patchLabel.setSizePolicy(sizePolicy)
-        self.patchLabel.setMinimumSize(QtCore.QSize(79, 23))
-        self.patchLabel.setMaximumSize(QtCore.QSize(16777215, 23))
-        self.patchLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.patchLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
-        self.patchLabel.setObjectName("patchLabel")
-        self.optionsLayout.addWidget(self.patchLabel, 1, 1, 1, 1)
-
-        #Patch selection
-        self.patchTypeSelect = QtWidgets.QComboBox(self.centerWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.allocLabel.sizePolicy().hasHeightForWidth())
-        self.patchTypeSelect.setSizePolicy(sizePolicy)
-        self.patchTypeSelect.setMinimumSize(QtCore.QSize(79, 23))
-        self.patchTypeSelect.setMaximumSize(QtCore.QSize(79, 23))
-        self.patchTypeSelect.setObjectName("patchTypeSelect")
-        self.patchTypeSelect.addItems(["AUTO", "LEGACY", "ARENA"])
-        self.optionsLayout.addWidget(self.patchTypeSelect, 2, 1, 1, 1)
-
         #handlerType label
         self.handlerTypeLabel = QtWidgets.QLabel(self.centerWidget)
         self.handlerTypeLabel.setEnabled(False)
@@ -387,7 +354,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.handlerTypeLabel.setTextFormat(QtCore.Qt.PlainText)
         self.handlerTypeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
         self.handlerTypeLabel.setObjectName("handlerTypeLabel")
-        self.optionsLayout.addWidget(self.handlerTypeLabel, 1, 2, 1, 1)
+        self.optionsLayout.addWidget(self.handlerTypeLabel, 1, 1, 1, 1)
 
         #handlerType selection
         self.handlerTypeSelect = QtWidgets.QComboBox(self.centerWidget)
@@ -400,7 +367,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.handlerTypeSelect.setMaximumSize(QtCore.QSize(79, 23))
         self.handlerTypeSelect.setObjectName("handlerTypeSelect")
         self.handlerTypeSelect.addItems(["FULL", "MINI"])
-        self.optionsLayout.addWidget(self.handlerTypeSelect, 2, 2, 1, 1)
+        self.optionsLayout.addWidget(self.handlerTypeSelect, 2, 1, 1, 1)
 
         #hookType label
         self.hookTypeLabel = QtWidgets.QLabel(self.centerWidget)
@@ -415,7 +382,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hookTypeLabel.setTextFormat(QtCore.Qt.PlainText)
         self.hookTypeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
         self.hookTypeLabel.setObjectName("hookTypeLabel")
-        self.optionsLayout.addWidget(self.hookTypeLabel, 1, 3, 1, 1)
+        self.optionsLayout.addWidget(self.hookTypeLabel, 1, 2, 1, 1)
 
         #hookType selection
         self.hookTypeSelect = QtWidgets.QComboBox(self.centerWidget)
@@ -428,7 +395,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.hookTypeSelect.setMaximumSize(QtCore.QSize(79, 23))
         self.hookTypeSelect.setObjectName("hookTypeSelect")
         self.hookTypeSelect.addItems(["VI", "GX", "PAD"])
-        self.optionsLayout.addWidget(self.hookTypeSelect, 2, 3, 1, 1)
+        self.optionsLayout.addWidget(self.hookTypeSelect, 2, 2, 1, 1)
 
         #txtCodesInclude label
         self.txtCodesIncludeLabel = QtWidgets.QLabel(self.centerWidget)
@@ -443,7 +410,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.txtCodesIncludeLabel.setTextFormat(QtCore.Qt.PlainText)
         self.txtCodesIncludeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
         self.txtCodesIncludeLabel.setObjectName("txtCodesIncludeLabel")
-        self.optionsLayout.addWidget(self.txtCodesIncludeLabel, 3, 0, 1, 1)
+        self.optionsLayout.addWidget(self.txtCodesIncludeLabel, 1, 3, 1, 1)
 
         #txtCodesInclude selection
         self.txtCodesIncludeSelect = QtWidgets.QComboBox(self.centerWidget)
@@ -456,35 +423,16 @@ class MainWindow(QtWidgets.QMainWindow):
         self.txtCodesIncludeSelect.setMaximumSize(QtCore.QSize(79, 23))
         self.txtCodesIncludeSelect.setObjectName("txtCodesIncludeSelect")
         self.txtCodesIncludeSelect.addItems(["ACTIVE", "ALL"])
-        self.optionsLayout.addWidget(self.txtCodesIncludeSelect, 4, 0, 1, 1)
+        self.optionsLayout.addWidget(self.txtCodesIncludeSelect, 2, 3, 1, 1)
 
-        #optimize label
-        self.optimizeLabel = QtWidgets.QLabel(self.centerWidget)
-        self.optimizeLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.optimizeLabel.sizePolicy().hasHeightForWidth())
-        self.optimizeLabel.setSizePolicy(sizePolicy)
-        self.optimizeLabel.setMinimumSize(QtCore.QSize(79, 23))
-        self.optimizeLabel.setMaximumSize(QtCore.QSize(16777215, 23))
-        self.optimizeLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.optimizeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
-        self.optimizeLabel.setObjectName("optimizeLabel")
-        self.optionsLayout.addWidget(self.optimizeLabel, 3, 1, 1, 1)
-
-        #optimize selection
-        self.optimizeSelect = QtWidgets.QComboBox(self.centerWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.allocLabel.sizePolicy().hasHeightForWidth())
-        self.optimizeSelect.setSizePolicy(sizePolicy)
-        self.optimizeSelect.setMinimumSize(QtCore.QSize(79, 23))
-        self.optimizeSelect.setMaximumSize(QtCore.QSize(79, 23))
-        self.optimizeSelect.setObjectName("optimizeSelect")
-        self.optimizeSelect.addItems(["TRUE", "FALSE"])
-        self.optionsLayout.addWidget(self.optimizeSelect, 4, 1, 1, 1)
+        #horizontal separater options
+        self.horiSepOptions = QtWidgets.QFrame(self.centerWidget)
+        self.horiSepOptions.setMinimumSize(QtCore.QSize(300, 30))
+        self.horiSepOptions.setContentsMargins(20, 0, 20, 0)
+        self.horiSepOptions.setFrameShape(QtWidgets.QFrame.HLine)
+        self.horiSepOptions.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self.horiSepOptions.setObjectName("horiSepOptions")
+        self.optionsLayout.addWidget(self.horiSepOptions, 3, 0, 1, 4)
 
         #Advanced options button
         self.exOptionsButton = QtWidgets.QPushButton(self.centerWidget)
@@ -498,7 +446,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.exOptionsButton.setFlat(False)
         self.exOptionsButton.setDisabled(True)
         self.exOptionsButton.setObjectName("exOptionsButton")
-        self.optionsLayout.addWidget(self.exOptionsButton, 4, 2, 1, 2)
+        self.optionsLayout.addWidget(self.exOptionsButton, 4, 0, 1, 4)
 
         #horizontal separater 1
         self.horiSepA = QtWidgets.QFrame(self.centerWidget)
@@ -718,16 +666,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.optionsLabel.setEnabled(True)
         self.allocLabel.setEnabled(True)
         self.allocLineEdit.setEnabled(True)
-        self.patchLabel.setEnabled(True)
-        self.patchTypeSelect.setEnabled(True)
         self.handlerTypeLabel.setEnabled(True)
         self.handlerTypeSelect.setEnabled(True)
         self.hookTypeLabel.setEnabled(True)
         self.hookTypeSelect.setEnabled(True)
         self.txtCodesIncludeLabel.setEnabled(True)
         self.txtCodesIncludeSelect.setEnabled(True)
-        self.optimizeLabel.setEnabled(True)
-        self.optimizeSelect.setEnabled(True)
         self.exOptionsButton.setEnabled(True)
         self.actionSave.setEnabled(True)
         self.actionSave_As.setEnabled(True)
@@ -805,11 +749,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.allocLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Allocation", None))
         self.allocLineEdit.setPlaceholderText(QtWidgets.QApplication.translate("MainWindow", "AUTO", None))
 
-        self.patchLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Patch Type", None))
-        self.patchTypeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "AUTO", None))
-        self.patchTypeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "LEGACY", None))
-        self.patchTypeSelect.setItemText(2, QtWidgets.QApplication.translate("Dialog", "ARENA", None))
-
         self.handlerTypeLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Codehandler", None))
         self.handlerTypeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "FULL", None))
         self.handlerTypeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "MINI", None))
@@ -822,10 +761,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.txtCodesIncludeLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Include Codes", None))
         self.txtCodesIncludeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "ACTIVE", None))
         self.txtCodesIncludeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "ALL", None))
-
-        self.optimizeLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Optimize", None))
-        self.optimizeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "TRUE", None))
-        self.optimizeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "FALSE", None))
 
         self.exOptionsButton.setText(QtWidgets.QApplication.translate("MainWindow", "Advanced Settings", None))
 

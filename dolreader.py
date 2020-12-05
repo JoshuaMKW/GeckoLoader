@@ -45,9 +45,9 @@ class DolFile(object):
                 f.seek(offset)
                 data = BytesIO(f.read(size))
                 if i < DolFile.maxTextSections:
-                    self.textSections.append([offset, address, size, data, DolFile.SectionType.Text])
+                    self.textSections.append({"offset": offset, "address": address, "size": size, "data": data, "type": DolFile.SectionType.Text})
                 else:
-                    self.dataSections.append([offset, address, size, data, DolFile.SectionType.Data])
+                    self.dataSections.append({"offset": offset, "address": address, "size": size, "data": data, "type": DolFile.SectionType.Data})
         
         f.seek(DolFile.bssInfoLoc)
         self.bssAddress = read_uint32(f)
@@ -56,38 +56,38 @@ class DolFile(object):
         f.seek(DolFile.entryInfoLoc)
         self.entryPoint = read_uint32(f)
         
-        self._currLogicAddr = self.get_first_section()[1]
+        self._currLogicAddr = self.first_section["address"]
         self.seek(self._currLogicAddr)
         f.seek(0)
 
-    def __str__(self):
-        return "Nintendo DOL format executable for the Wii and Gamecube"
+    def __repr__(self) -> str:
+        return f"repr={vars(self)}"
+
+    def __str__(self) -> str:
+        return f"Nintendo DOL executable {self.__repr__()}"
         
-    # Internal function for 
     def resolve_address(self, gcAddr: int) -> tuple:
         """ Returns the data of the section that houses the given address\n
             UnmappedAddressError is raised when the address is unmapped """
 
-        for offset, address, size, data, sectiontype in self.textSections:
-            if address <= gcAddr < address+size:
-                return offset, address, size, data, sectiontype
-        for offset, address, size, data, sectiontype in self.dataSections:
-            if address <= gcAddr < address+size:
-                return offset, address, size, data, sectiontype
+        for section in self.sections:
+            if section["address"] <= gcAddr < (section["address"] + section["size"]):
+                return section
         
         raise UnmappedAddressError(f"Unmapped address: 0x{gcAddr:X}")
 
     def seek_nearest_unmapped(self, gcAddr: int, buffer=0) -> int:
         '''Returns the nearest unmapped address (greater) if the given address is already taken by data'''
-        
-        for _, address, size, _, _ in self.textSections:
-            if address > (gcAddr + buffer) or address+size < gcAddr:
+
+        for section in self.sections:
+            if section["address"] > (gcAddr + buffer) or (section["address"] + section["size"]) < gcAddr:
                 continue
-            gcAddr = address + size
-        for _, address, size, _, _ in self.dataSections:
-            if address > (gcAddr + buffer) or address+size < gcAddr:
-                continue
-            gcAddr = address + size
+            gcAddr = section["address"] + section["size"]
+
+            try:
+                self.resolve_address(gcAddr)
+            except UnmappedAddressError:
+                break
         return gcAddr
 
     @property
@@ -98,24 +98,23 @@ class DolFile(object):
             yield i
         for i in self.dataSections:
             yield i
-        
-        return
 
-    def get_final_section(self) -> tuple:
+    @property
+    def last_section(self) -> tuple:
         """ Returns the last section in the dol file as sorted by internal offset """
 
         largestOffset = 0
         indexToTarget = 0
         targetType = DolFile.SectionType.Text
 
-        for i, sectionData in enumerate(self.textSections):
-            if sectionData[0] > largestOffset:
-                largestOffset = sectionData[0]
+        for i, section in enumerate(self.textSections):
+            if section["offset"] > largestOffset:
+                largestOffset = section["offset"]
                 indexToTarget = i
                 targetType = DolFile.SectionType.Text
-        for i, sectionData in enumerate(self.dataSections):
-            if sectionData[0] > largestOffset:
-                largestOffset = sectionData[0]
+        for i, section in enumerate(self.dataSections):
+            if section["offset"] > largestOffset:
+                largestOffset = section["offset"]
                 indexToTarget = i
                 targetType = DolFile.SectionType.Data
         
@@ -124,21 +123,22 @@ class DolFile(object):
         else:
             return self.dataSections[indexToTarget]
 
-    def get_first_section(self) -> tuple:
+    @property
+    def first_section(self) -> tuple:
         """ Returns the first section in the dol file as sorted by internal offset """
 
         smallestOffset = 0xFFFFFFFF
         indexToTarget = 0
         targetType = DolFile.SectionType.Text
 
-        for i, sectionData in enumerate(self.textSections):
-            if sectionData[0] < smallestOffset:
-                smallestOffset = sectionData[0]
+        for i, section in enumerate(self.textSections):
+            if section["offset"] < smallestOffset:
+                smallestOffset = section["offset"]
                 indexToTarget = i
                 targetType = DolFile.SectionType.Text
-        for i, sectionData in enumerate(self.dataSections):
-            if sectionData[0] < smallestOffset:
-                smallestOffset = sectionData[0]
+        for i, section in enumerate(self.dataSections):
+            if section["offset"] < smallestOffset:
+                smallestOffset = section["offset"]
                 indexToTarget = i
                 targetType = DolFile.SectionType.Data
         
@@ -149,32 +149,32 @@ class DolFile(object):
     
     # Unsupported: Reading an entire dol file 
     # Assumption: A read should not go beyond the current section 
-    def read(self, _size) -> bytes:
-        _, address, size, data, _ = self.resolve_address(self._currLogicAddr)
-        if self._currLogicAddr + _size > address + size:
+    def read(self, _size: int) -> bytes:
+        section = self.resolve_address(self._currLogicAddr)
+        if self._currLogicAddr + _size > (section["address"] + section["size"]):
             raise UnmappedAddressError("Read goes over current section")
             
         self._currLogicAddr += _size  
-        return data.read(_size)
+        return section["data"].read(_size)
         
     # Assumption: A write should not go beyond the current section 
-    def write(self, _data):
-        _, address, size, data, _ = self.resolve_address(self._currLogicAddr)
-        if self._currLogicAddr + len(_data) > address + size:
+    def write(self, _data: bytes):
+        section = self.resolve_address(self._currLogicAddr)
+        if self._currLogicAddr + len(_data) > (section["address"] + section["size"]):
             raise UnmappedAddressError("Write goes over current section")
             
-        data.write(_data)
+        section["data"].write(_data)
         self._currLogicAddr += len(_data)
     
-    def seek(self, where, whence=0):
+    def seek(self, where: int, whence: int = 0):
         if whence == 0:
-            _, address, _, data, _ = self.resolve_address(where)
-            data.seek(where - address)
+            section = self.resolve_address(where)
+            section["data"].seek(where - section["address"])
             
             self._currLogicAddr = where
         elif whence == 1:
-            _, address, _, data, _ = self.resolve_address(self._currLogicAddr + where)
-            data.seek((self._currLogicAddr + where) - address)
+            section = self.resolve_address(self._currLogicAddr + where)
+            section["data"].seek((self._currLogicAddr + where) - section["address"])
             
             self._currLogicAddr += where
         else:
@@ -185,29 +185,23 @@ class DolFile(object):
     
     def save(self, f):
         f.seek(0)
-        f.write(b"\x00" * self.get_full_size())
+        f.write(b"\x00" * self.size)
 
-        for i in range(DolFile.maxTextSections + DolFile.maxDataSections):
-            if i < DolFile.maxTextSections:
-                if i < len(self.textSections):
-                    offset, address, size, data, _ = self.textSections[i]
-                else:
-                    continue
+        for i, section in enumerate(self.sections):
+            if section["type"] == DolFile.SectionType.Data:
+                entry = i + (DolFile.maxTextSections - len(self.textSections))
             else:
-                if i - DolFile.maxTextSections < len(self.dataSections):
-                    offset, address, size, data, _ = self.dataSections[i - DolFile.maxTextSections]
-                else:
-                    continue
+                entry = i
 
-            f.seek(DolFile.offsetInfoLoc + (i << 2))
-            write_uint32(f, offset) #offset in file
-            f.seek(DolFile.addressInfoLoc + (i << 2))
-            write_uint32(f, address) #game address
-            f.seek(DolFile.sizeInfoLoc + (i << 2))
-            write_uint32(f, size) #size in file
+            f.seek(DolFile.offsetInfoLoc + (entry << 2))
+            write_uint32(f, section["offset"]) #offset in file
+            f.seek(DolFile.addressInfoLoc + (entry << 2))
+            write_uint32(f, section["address"]) #game address
+            f.seek(DolFile.sizeInfoLoc + (entry << 2))
+            write_uint32(f, section["size"]) #size in file
 
-            f.seek(offset)
-            f.write(data.getbuffer())
+            f.seek(section["offset"])
+            f.write(section["data"].getbuffer())
 
         f.seek(DolFile.bssInfoLoc)
         write_uint32(f, self.bssAddress)
@@ -217,10 +211,11 @@ class DolFile(object):
         write_uint32(f, self.entryPoint)
         align_byte_size(f, 256)
 
-    def get_full_size(self) -> int:
+    @property
+    def size(self) -> int:
         try:
-            offset, _, size, _, _ = self.get_final_section()
-            return (offset + size + 255) & -256
+            section = self.last_section
+            return (section["offset"] + section["size"] + 255) & -256
         except IndexError:
             return 0x100
 
@@ -229,20 +224,20 @@ class DolFile(object):
             section: DolFile.SectionType """
 
         if section == DolFile.SectionType.Text:
-            return self.textSections[index][2]
+            return self.textSections[index]["size"]
         else:
-            return self.dataSections[index][2]
+            return self.dataSections[index]["size"]
 
     
-    def append_text_sections(self, sectionsList: list) -> bool:
+    def append_text_sections(self, sectionsList: list):
         """ Follows the list format: [tuple(<Bytes>Data, <Int>GameAddress or None), tuple(<Bytes>Data... """
 
         for i, dataSet in enumerate(sectionsList):
             if len(self.textSections) >= DolFile.maxTextSections:
                 raise SectionCountFullError(f"Exceeded max text section limit of {DolFile.maxTextSections}")
 
-            fOffset, _, fSize, _, _ = self.get_final_section()
-            _, pAddress, pSize, _, _ = self.textSections[len(self.textSections) - 1]
+            finalSection = self.last_section
+            lastSection = self.textSections[len(self.textSections) - 1]
             data, address = dataSet
             
             if not hasattr(data, "getbuffer"):
@@ -252,7 +247,7 @@ class DolFile(object):
                 else:
                     data = BytesIO(data)
 
-            offset = fOffset + fSize
+            offset = finalSection["offset"] + finalSection["size"]
 
             if i < len(sectionsList) - 1:
                 size = (len(data.getbuffer()) + 31) & -32
@@ -260,22 +255,22 @@ class DolFile(object):
                 size = (len(data.getbuffer()) + 255) & -256
 
             if address is None:
-                address = self.seek_nearest_unmapped(pAddress + pSize, size)
+                address = self.seek_nearest_unmapped(lastSection["address"] + lastSection["size"], size)
 
             if address < 0x80000000 or address >= 0x81200000:
                 raise AddressOutOfRangeError(f"Address '{address:08X}' of text section {i} is beyond scope (0x80000000 <-> 0x81200000)")
 
-            self.textSections.append((offset, address, size, data, DolFile.SectionType.Text))
+            self.textSections.append({"offset": offset, "address": address, "size": size, "data": data, "type": DolFile.SectionType.Text})
 
-    def append_data_sections(self, sectionsList: list) -> bool:
+    def append_data_sections(self, sectionsList: list):
         """ Follows the list format: [tuple(<Bytes>Data, <Int>GameAddress or None), tuple(<Bytes>Data... """
 
         for i, dataSet in enumerate(sectionsList):
             if len(self.dataSections) >= DolFile.maxDataSections:
                 raise SectionCountFullError(f"Exceeded max data section limit of {DolFile.maxDataSections}")
 
-            fOffset, _, fSize, _, _ = self.get_final_section()
-            _, pAddress, pSize, _, _ = self.dataSections[len(self.dataSections) - 1]
+            finalSection = self.last_section
+            lastSection = self.dataSections[len(self.dataSections) - 1]
             data, address = dataSet
 
             if not hasattr(data, "getbuffer"):
@@ -285,7 +280,7 @@ class DolFile(object):
                 else:
                     data = BytesIO(data)
 
-            offset = fOffset + fSize
+            offset = finalSection["offset"] + finalSection["size"]
 
             if i < len(sectionsList) - 1:
                 size = (len(data.getbuffer()) + 31) & -32
@@ -293,12 +288,12 @@ class DolFile(object):
                 size = (len(data.getbuffer()) + 255) & -256
 
             if address is None:
-                address = self.seek_nearest_unmapped(pAddress + pSize, size)
+                address = self.seek_nearest_unmapped(lastSection["address"] + lastSection["size"], size)
 
             if address < 0x80000000 or address >= 0x81200000:
                 raise AddressOutOfRangeError(f"Address '{address:08X}' of data section {i} is beyond scope (0x80000000 <-> 0x81200000)")
 
-            self.dataSections.append((offset, address, size, data, DolFile.SectionType.Data))
+            self.dataSections.append({"offset": offset, "address": address, "size": size, "data": data, "type": DolFile.SectionType.Data})
 
     def insert_branch(self, to: int, _from: int, lk=0):
         """ Insert a branch instruction at _from\n
@@ -309,7 +304,6 @@ class DolFile(object):
         _from &= 0xFFFFFFFC
         to &= 0xFFFFFFFC
         self.seek(_from)
-        print(hex(to), hex(_from), hex((to - _from) & 0x3FFFFFD | 0x48000000 | lk))
         write_uint32(self, (to - _from) & 0x3FFFFFD | 0x48000000 | lk)
 
     def extract_branch_addr(self, bAddr: int) -> tuple:
@@ -389,7 +383,7 @@ class DolFile(object):
         info = [ "-"*len(header) + "\n" + header + "\n" + "-"*len(header),
                  "Text sections:".ljust(16, " ") + f"0x{len(self.textSections):X}",
                  "Data sections:".ljust(16, " ") + f"0x{len(self.dataSections):X}",
-                 "File length:".ljust(16, " ") + f"0x{self.get_full_size():X}" ]
+                 "File length:".ljust(16, " ") + f"0x{self.size:X}" ]
 
         print("\n".join(info) + "\n")
 

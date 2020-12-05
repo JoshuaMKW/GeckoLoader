@@ -1,6 +1,5 @@
 #Written by JoshuaMK 2020
 
-import argparse
 import atexit
 import logging
 import os
@@ -13,6 +12,7 @@ import tempfile
 from contextlib import redirect_stdout, redirect_stderr
 from distutils.version import LooseVersion
 from io import StringIO
+from pathlib import Path
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -45,15 +45,15 @@ except ImportError:
     TRED = ''
     TREDLIT = ''
 
-__version__ = "v7.0.0"
+__version__ = "v7.1.0"
 
-TMPDIR = tempfile.mkdtemp("GeckoLoader-")
+TMPDIR = Path(tempfile.mkdtemp(prefix="GeckoLoader-"))
 
 @atexit.register
 def clean_tmp_resources():
-    tmpfolder = os.path.dirname(TMPDIR)
-    for entry in os.listdir(tmpfolder):
-        if entry.startswith("GeckoLoader-"):
+    tmpfolder = TMPDIR.parent
+    for entry in tmpfolder.iterdir():
+        if entry.name.startswith("GeckoLoader-"):
             shutil.rmtree(entry, ignore_errors=True)
 
 class GeckoLoaderCli(CommandLineParser):
@@ -71,13 +71,6 @@ class GeckoLoaderCli(CommandLineParser):
         self.add_argument('-i', '--init',
                         help='Define where GeckoLoader is initialized in hex',
                         metavar='ADDRESS')
-        self.add_argument('-m', '--movecodes',
-                        help='''["AUTO", "LEGACY", "ARENA"] Choose if GeckoLoader moves the codes to OSArenaHi,
-                        or the legacy space. Default is "AUTO",
-                        which auto decides where to insert the codes''',
-                        default='AUTO',
-                        choices=['AUTO', 'LEGACY', 'ARENA'],
-                        metavar='TYPE')
         self.add_argument('-tc', '--txtcodes',
                         help='''["ACTIVE", "ALL"] What codes get parsed when a txt file is used.
                         "ALL" makes all codes get parsed,
@@ -173,10 +166,10 @@ class GeckoLoaderCli(CommandLineParser):
 
         tag, status = repoChecker.get_newest_version()
 
-        print('')
-        
         if status is False:
             self.error(color_text(tag + '\n', defaultColor=TREDLIT), print_usage=False)
+
+        print('')
 
         if LooseVersion(tag) > LooseVersion(self.__version__):
             print(color_text(f'  :: A new update is live at {repoChecker.gitReleases.format(repoChecker.owner, repoChecker.repo)}', defaultColor=TYELLOWLIT))
@@ -211,9 +204,9 @@ class GeckoLoaderCli(CommandLineParser):
             _codehook = None
 
         if args.handler == CodeHandler.Types.MINI:
-            codeHandlerFile = 'codehandler-mini.bin'
+            codeHandlerFile = Path('bin/codehandler-mini.bin')
         elif args.handler == CodeHandler.Types.FULL:
-            codeHandlerFile = 'codehandler.bin'
+            codeHandlerFile = Path('bin/codehandler.bin')
         else:
             self.error(color_text(f'Codehandler type {args.handler} is invalid\n', defaultColor=TREDLIT))
 
@@ -226,23 +219,13 @@ class GeckoLoaderCli(CommandLineParser):
         return _allocation, _codehook, codeHandlerFile
 
     def _exec(self, args, tmpdir):
-        if not os.path.isabs(args.dolfile):
-            args.dolfile = os.path.abspath(args.dolfile)
-        
-        if not os.path.isabs(args.codelist):
-            args.codelist = os.path.abspath(args.codelist)
-
-        if args.dest:
-            if not os.path.isabs(args.dest):
-                args.dest = os.path.abspath(args.dest)
-
         _allocation, _codehook, codeHandlerFile = self._validate_args(args)
         
         try:
-            with open(os.path.normpath(args.dolfile), 'rb') as dol:
+            with open(args.dolfile, "rb") as dol:
                 dolFile = DolFile(dol)
 
-            with open(resource_path(os.path.join('bin', os.path.normpath(codeHandlerFile))), 'rb') as handler:
+            with resource_path(str(codeHandlerFile)).open("rb") as handler:
                 codeHandler = CodeHandler(handler)
                 codeHandler.allocation = _allocation
                 codeHandler.hookAddress = _codehook
@@ -250,36 +233,28 @@ class GeckoLoaderCli(CommandLineParser):
                 codeHandler.includeAll = args.txtcodes.lower() == 'all'
                 codeHandler.optimizeList = args.optimize
 
-            with open(resource_path(os.path.join('bin', 'geckoloader.bin')), 'rb') as kernelfile:
+            with resource_path("bin/geckoloader.bin").open("rb") as kernelfile:
                 geckoKernel = KernelLoader(kernelfile, cli)
 
                 if args.init is not None:
                     geckoKernel.initAddress = int(args.init, 16)
 
-                geckoKernel.patchJob = args.movecodes
                 geckoKernel.verbosity = args.verbose
                 geckoKernel.quiet = args.quiet
                 geckoKernel.encrypt = args.encrypt
                 geckoKernel.protect = args.protect
 
             if args.dest:
-                if not os.path.isabs(args.dest):
-                    if os.path.splitext(args.dest)[1] == "":
-                        dest = os.path.normpath(os.path.join(os.getcwd(), args.dest.lstrip('.').lstrip('\\').lstrip('/'), os.path.basename(args.dolfile)))
-                    else:
-                        dest = os.path.normpath(os.path.join(os.getcwd(), args.dest.lstrip('.').lstrip('\\').lstrip('/')))
-                else:
-                    if os.path.splitext(args.dest)[1] == "":
-                        dest = os.path.normpath(os.path.join(args.dest.lstrip('.').lstrip('\\').lstrip('/'), os.path.basename(args.dolfile)))
-                    else:
-                        dest = os.path.normpath(os.path.join(args.dest.lstrip('.').lstrip('\\').lstrip('/')))
+                dest = Path(args.dest).resolve()
+                if dest.suffix == "":
+                    dest = dest / args.dolfile.name
             else:
-                dest = os.path.normpath(os.path.join(os.getcwd(), "geckoloader-build", os.path.basename(args.dolfile)))
+                dest = Path.cwd() / "geckoloader-build" / args.dolfile.name
 
-            if not os.path.exists(dest) and os.path.dirname(dest) not in ('', '/'):
-                os.makedirs(os.path.dirname(dest), exist_ok=True)
-            
-            geckoKernel.build(args.codelist, dolFile, codeHandler, TMPDIR, dest)
+            if not dest.parent.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
+
+            geckoKernel.build(Path(args.codelist), dolFile, codeHandler, TMPDIR, dest)
             
         except FileNotFoundError as e:
             self.error(color_text(e, defaultColor=TREDLIT))
@@ -309,12 +284,12 @@ class GUI(object):
         self.style_log = []
         self.compileCount = 0
 
-        self.log = logging.getLogger(f"GeckoLoader {self.cli.__version__}")
+        self.log = logging.getLogger(f"GeckoLoader {self.version}")
 
-        if not os.path.exists(get_program_folder("GeckoLoader")):
-            os.mkdir(get_program_folder("GeckoLoader"))
+        if not get_program_folder("GeckoLoader").exists():
+            get_program_folder("GeckoLoader").mkdir()
 
-        hdlr = logging.FileHandler(os.path.join(get_program_folder("GeckoLoader"), "error.log"))
+        hdlr = logging.FileHandler(get_program_folder("GeckoLoader") / "error.log")
         formatter = logging.Formatter("\n%(levelname)s (%(asctime)s): %(message)s")
         hdlr.setFormatter(formatter)
         self.log.addHandler(hdlr)
@@ -329,7 +304,7 @@ class GUI(object):
                              "pre-patching codes, dynamic codehandler hooks, codespace ",
                              "extension through memory reallocation, multiple patching ",
                              "of a single DOL, and more.\n\n",
-                            f"Current running version: {self.cli.__version__}\n\n"
+                            f"Current running version: {self.version}\n\n"
                              "Copyright (c) 2020\n\n",
                              "JoshuaMK <joshuamkw2002@gmail.com> \n\n",
                              "All rights reserved." ])
@@ -340,21 +315,25 @@ class GUI(object):
         else:
             self.uiexSettings.show()
 
+    @property
+    def version(self) -> str:
+        return self.cli.__version__
+
     def _open_dol(self) -> tuple:
         if self.dolPath is None:  # Just start in the home directory
-            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", os.path.expanduser("~"),
+            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", str(Path.home()),
                                                                 "Nintendo DOL Executable (*.dol);;All files (*)")[0])
         else:  # Start in the last directory used by the user
-            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", os.path.split(self.dolPath)[0],
+            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", str(self.dolPath.parent),
                                                                 "Nintendo DOL Executable (*.dol);;All files (*)")[0])
 
         if fname == "" or fname is None:  # Make sure we have something to open
             return False, None
         else:
-            self.dolPath = os.path.normpath(fname)
+            self.dolPath = Path(fname).resolve()
 
-        if os.path.isfile(self.dolPath):
-            self.ui.dolTextBox.setText(self.dolPath)
+        if self.dolPath.is_file():
+            self.ui.dolTextBox.setText(str(self.dolPath))
             return True, None
         else:
             return False, "The file does not exist!"
@@ -362,63 +341,63 @@ class GUI(object):
     def _load_codes(self, isFolder: bool=False) -> tuple:
         if not isFolder:
             if self.codePath[0] is None:  # Just start in the home directory
-                fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Codelist", os.path.expanduser("~"),
+                fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Codelist", str(Path.home()),
                                                                 "Gecko Code Table (*.gct);;Gecko Codelist (*.txt);;All files (*)")[0])
             else:  # Start in the last directory used by the user
-                fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Codelist", os.path.split(self.codePath[0])[0],
+                fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Codelist", str(self.codePath[0].parent),
                                                                 "Gecko Code Table (*.gct);;Gecko Codelist (*.txt);;All files (*)")[0])
         else:
             if self.codePath[0] is None:  # Just start in the home directory
-                fname = str(QtWidgets.QFileDialog.getExistingDirectory(self.ui, "Open Codelist", os.path.expanduser("~"),
-                                                                    QtWidgets.QFileDialog.ShowDirsOnly))
+                fname = str(QtWidgets.QFileDialog.getExistingDirectory(self.ui, "Open Codelist", str(Path.home()),
+                                                                    QtWidgets.QFileDialog.ShowDirsOnly)) 
             else:  # Start in the last directory used by the user
-                fname = str(QtWidgets.QFileDialog.getExistingDirectory(self.ui, "Open Codelist", os.path.split(self.codePath[0])[0],
+                fname = str(QtWidgets.QFileDialog.getExistingDirectory(self.ui, "Open Codelist", str(self.codePath[0].parent),
                                                                     QtWidgets.QFileDialog.ShowDirsOnly))
 
         if fname == "" or fname is None:  # Make sure we have something to open
             return False, None
         else:
-            self.codePath = [os.path.normpath(fname), isFolder]
+            self.codePath = [Path(fname).resolve(), isFolder]
 
             if not isFolder:
-                self.ui.gctFileTextBox.setText(self.codePath[0])
+                self.ui.gctFileTextBox.setText(str(self.codePath[0]))
                 self.ui.gctFolderTextBox.setText("")
             else:
                 self.ui.gctFileTextBox.setText("")
-                self.ui.gctFolderTextBox.setText(self.codePath[0])
+                self.ui.gctFolderTextBox.setText(str(self.codePath[0]))
 
             return True, None
 
     def _open_dest(self) -> tuple:
         if self.dolPath is None:  # Just start in the home directory
-            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", os.path.expanduser("~"),
+            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", str(Path.home()),
                                                                 "Nintendo DOL Executable (*.dol);;All files (*)")[0])
         else:  # Start in the last directory used by the user
-            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", os.path.split(self.dolPath)[0],
+            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open DOL", str(self.dolPath.parent),
                                                                 "Nintendo DOL Executable (*.dol);;All files (*)")[0])
 
         if fname == "" or fname is None:  # Make sure we have something to open
             return False, None
         else:
-            self.destPath = os.path.normpath(fname)
-            self.ui.destTextBox.setText(self.destPath)
+            self.destPath = Path(fname).resolve()
+            self.ui.destTextBox.setText(str(self.destPath))
 
             return True, None
 
     def _load_session(self) -> tuple:
         if self.sessionPath is None:
-            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Session", os.path.expanduser("~"),
+            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Session", str(Path.home()),
                                                                 "GeckoLoader Session (*.gprf);;All files (*)")[0])
         else:  # Start in the last directory used by the user
-            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Session", os.path.split(self.sessionPath)[0],
+            fname = str(QtWidgets.QFileDialog.getOpenFileName(self.ui, "Open Session", str(self.sessionPath.parent),
                                                                 "GeckoLoader Session (*.gprf);;All files (*)")[0])
 
         if fname == "" or fname is None:  # Make sure we have something to open
             return False, None
         else:
-            self.sessionPath = os.path.normpath(fname)
+            self.sessionPath = Path(fname).resolve()
 
-            with open(self.sessionPath, "rb") as session:
+            with self.sessionPath.open("rb") as session:
                 p = cPickle.load(session)
 
                 self.ui.dolTextBox.setText(p["dolPath"])
@@ -435,11 +414,10 @@ class GUI(object):
 
                 self.ui.destTextBox.setText(p["destPath"])
                 self.ui.allocLineEdit.setText(p["alloc"])
-                self.ui.patchTypeSelect.setCurrentIndex(p["patchIndex"])
                 self.ui.handlerTypeSelect.setCurrentIndex(p["handlerIndex"])
                 self.ui.hookTypeSelect.setCurrentIndex(p["hookIndex"])
                 self.ui.txtCodesIncludeSelect.setCurrentIndex(p["txtIndex"])
-                self.ui.optimizeSelect.setCurrentIndex(p["optimizeIndex"])
+                self.uiexSettings.optimizeCodes.setChecked(p["optimize"])
                 self.uiexSettings.protectCodes.setChecked(p["protect"])
                 self.uiexSettings.encryptCodes.setChecked(p["encrypt"])
                 self.uiexSettings.codehookLineEdit.setText(p["hookAddress"])
@@ -451,19 +429,19 @@ class GUI(object):
     def _save_session(self, saveAs=False):
         if saveAs or self.sessionPath is None or self.sessionPath == "":
             if self.sessionPath is None:  # Just start in the home directory
-                fname = str(QtWidgets.QFileDialog.getSaveFileName(self.ui, "Save Session", os.path.expanduser("~"),
+                fname = str(QtWidgets.QFileDialog.getSaveFileName(self.ui, "Save Session", str(Path.home()),
                                                                   "GeckoLoader Session (*.gprf);;All files (*)")[0])
             else:  # Start in the last directory used by the user
-                fname = str(QtWidgets.QFileDialog.getSaveFileName(self.ui, "Save Session", os.path.split(self.dolPath)[0],
+                fname = str(QtWidgets.QFileDialog.getSaveFileName(self.ui, "Save Session", str(self.dolPath.parent),
                                                                   "GeckoLoader Session (*.gprf);;All files (*)")[0])
 
             if fname == "" or fname is None:  # Make sure we have something to open
                 return False, None
             else:
-                self.sessionPath = os.path.normpath(fname)
+                self.sessionPath = Path(fname).resolve()
 
         try:
-            with open(self.sessionPath, "wb") as session:
+            with self.sessionPath.open("wb") as session:
                 p = {}
 
                 p["dolPath"] = self.ui.dolTextBox.text().strip()
@@ -471,11 +449,10 @@ class GUI(object):
                 p["gctFolderPath"] = self.ui.gctFolderTextBox.text().strip()
                 p["destPath"] = self.ui.destTextBox.text().strip()
                 p["alloc"] = self.ui.allocLineEdit.text().strip()
-                p["patchIndex"] = self.ui.patchTypeSelect.currentIndex()
                 p["handlerIndex"] = self.ui.handlerTypeSelect.currentIndex()
                 p["hookIndex"] = self.ui.hookTypeSelect.currentIndex()
                 p["txtIndex"] = self.ui.txtCodesIncludeSelect.currentIndex()
-                p["optimizeIndex"] = self.ui.optimizeSelect.currentIndex()
+                p["optimize"] = self.uiexSettings.optimizeCodes.isChecked()
                 p["protect"] = self.uiexSettings.protectCodes.isChecked()
                 p["encrypt"] = self.uiexSettings.encryptCodes.isChecked()
                 p["hookAddress"] = self.uiexSettings.codehookLineEdit.text().strip()
@@ -533,7 +510,6 @@ class GUI(object):
         self.ui.gctFolderTextBox.setText("")
         self.ui.destTextBox.setText("")
         self.ui.allocLineEdit.setText("")
-        self.ui.patchTypeSelect.setCurrentIndex(0)
         self.ui.handlerTypeSelect.setCurrentIndex(0)
         self.ui.hookTypeSelect.setCurrentIndex(0)
         self.ui.txtCodesIncludeSelect.setCurrentIndex(0)
@@ -545,13 +521,12 @@ class GUI(object):
         self.uiexSettings.kernelHookLineEdit.setText("")
         self.uiexSettings.verbositySelect.setCurrentIndex(0)
         self.ui.set_edit_fields()
-        #Reset all ui elements as needed
 
     def load_prefs(self):
         datapath = get_program_folder("GeckoLoader")
 
         try:
-            with open(os.path.join(datapath, ".GeckoLoader.conf"), "rb") as f:
+            with (datapath / ".GeckoLoader.conf").open("rb") as f:
                 try:
                     p = cPickle.load(f)
                 except cPickle.UnpicklingError as e:
@@ -587,13 +562,13 @@ class GUI(object):
         self.prefs["darktheme"] = self.uiprefs.qtdarkButton.isChecked()
 
         try:
-            with open(os.path.join(datapath, ".GeckoLoader.conf"), "wb") as f:
+            with (datapath / ".GeckoLoader.conf").open("wb") as f:
                 cPickle.dump(self.prefs, f)
         except IOError as e:
             self.log.exception(e)
 
     def load_qtstyle(self, style, first_style_load=False):
-        self.style_log.append( [self.app.style, self.uiprefs.qtstyleSelect.currentText()] )
+        self.style_log.append([self.app.style, self.uiprefs.qtstyleSelect.currentText()])
 
         if len(self.style_log) > 2:
             self.style_log.pop(0)
@@ -631,7 +606,7 @@ class GUI(object):
                 _status = True
 
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(resource_path(os.path.join("bin", "icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(resource_path(Path("bin/icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 
         if _status is False:
             reply = QtWidgets.QErrorMessage()
@@ -707,33 +682,32 @@ class GUI(object):
         self.compileCount += 1
 
         if self.ui.dolTextBox.isEnabled and self.ui.dolTextBox.text().strip() != "":
-            dol = os.path.normpath(self.ui.dolTextBox.text().strip())
+            dol = self.ui.dolTextBox.text().strip()
         else:
             self.ui.responses.appendPlainText("DOL is missing, please add the path to your codes in the respective textbox" + "\n\n")
             return
 
         if self.ui.gctFileTextBox.isEnabled and self.ui.gctFileTextBox.text().strip() != "":
-            gct = os.path.normpath(self.ui.gctFileTextBox.text().strip())
+            gct = self.ui.gctFileTextBox.text().strip()
         elif self.ui.gctFolderTextBox.isEnabled and self.ui.gctFolderTextBox.text().strip() != "":
-            gct = os.path.normpath(self.ui.gctFolderTextBox.text().strip())
+            gct = self.ui.gctFolderTextBox.text().strip()
         else:
             self.ui.responses.appendPlainText("GCT is missing, please add the path to your codes in the respective textbox" + "\n\n")
             return
 
         alloc = self.ui.allocLineEdit.text().strip()
-        patchJob = self.ui.patchTypeSelect.currentText().strip()
         hookType = self.ui.hookTypeSelect.currentText().strip()
         hookAddress = self.uiexSettings.codehookLineEdit.text().strip()
         initAddress = self.uiexSettings.kernelHookLineEdit.text().strip()
         txtInclude = self.ui.txtCodesIncludeSelect.currentText().strip()
         codeHandlerType = self.ui.handlerTypeSelect.currentText().strip()
-        optimize = self.ui.optimizeSelect.currentText().strip() == "TRUE"
+        optimize = self.uiexSettings.optimizeCodes.isChecked()
         protect = self.uiexSettings.protectCodes.isChecked()
         encrypt = self.uiexSettings.encryptCodes.isChecked()
         verbosity = int(self.uiexSettings.verbositySelect.currentText().strip())
         dest = self.ui.destTextBox.text().strip()
 
-        argslist = [ dol, gct, "-m", patchJob, "-t", txtInclude, "--handler", codeHandlerType, "--hooktype", hookType ]
+        argslist = [ dol, gct, "-t", txtInclude, "--handler", codeHandlerType, "--hooktype", hookType ]
 
         if alloc != "":
             argslist.append("-a")
@@ -802,23 +776,23 @@ class GUI(object):
     
     def run(self):
         if sys.platform != "win32":
-            datapath = os.path.join(os.getenv("HOME"), ".GeckoLoader")
+            datapath = Path.home() / ".GeckoLoader"
         else:
-            datapath = os.path.join(os.getenv("APPDATA"), "GeckoLoader")
+            datapath = Path(os.getenv("APPDATA")) / "GeckoLoader"
 
-        if not os.path.isdir(datapath):
-            os.mkdir(datapath)
+        if not datapath.is_dir():
+            datapath.mkdir()
         
         self.app = QtWidgets.QApplication(sys.argv)
         self.default_qtstyle = self.app.style().objectName()
-        self.ui = MainWindow(self.cli.__version__)
+        self.ui = MainWindow(self.version)
         self.uiprefs = PrefWindow()
         self.uiexSettings = SettingsWindow()
 
         self.uiprefs.qtstyleSelect.addItem("Default")
 
-        for i in range(0, len(list(QtWidgets.QStyleFactory.keys()))):
-            self.uiprefs.qtstyleSelect.addItem(list(QtWidgets.QStyleFactory.keys())[i])
+        styleKeys = list(QtWidgets.QStyleFactory.keys())
+        self.uiprefs.qtstyleSelect.addItems(styleKeys)
 
         self.load_prefs()
         self.load_qtstyle(self.prefs.get("qtstyle"), True)
@@ -841,14 +815,10 @@ if __name__ == "__main__":
         app = GUI(cli)
         signal.signal(signal.SIGINT, signal.SIG_DFL)
         app.run()
-        sys.exit(1) #Should never reach here
-
     elif '--checkupdate' in sys.argv:
         cli.check_updates()
-        sys.exit(0)
     elif '--splash' in sys.argv:
         cli.print_splash()
-        sys.exit(0)
-
-    args = cli.parse_args()
-    cli._exec(args, TMPDIR)
+    else:
+        args = cli.parse_args()
+        cli._exec(args, TMPDIR)

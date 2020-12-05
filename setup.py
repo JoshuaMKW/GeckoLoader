@@ -18,7 +18,7 @@ executables = [
 ]
 
 setup(name = "GeckoLoader",
-      version = "7.0.0",
+      version = "7.1.0",
       description = "DOL Patcher for extending the codespace of Wii/GC games",
       executables = [Executable("GeckoLoader.py", icon=os.path.join("bin", "icon.ico"))],
       author = "JoshuaMK",

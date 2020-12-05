@@ -17,7 +17,7 @@ class PrefWindow(QtWidgets.QDialog):
         self.setFixedSize(300, 120)
         self.setModal(True)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(resource_path(os.path.join("bin", "icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(resource_path(os.path.join("bin", "icon.ico")))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.setWindowIcon(icon)
 
         #Buttonbox
@@ -73,13 +73,13 @@ class SettingsWindow(QtWidgets.QDialog):
         self.setObjectName("Dialog")
         
         if sys.platform == "win32":
-            self.setFixedSize(300, 210)
+            self.setFixedSize(300, 240)
         else:
-            self.setFixedSize(370, 210)
+            self.setFixedSize(370, 240)
             
         self.setModal(True)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(resource_path(os.path.join("bin", "icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(resource_path(os.path.join("bin", "icon.ico")))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.setWindowIcon(icon)
 
         #Buttonbox
@@ -113,10 +113,17 @@ class SettingsWindow(QtWidgets.QDialog):
         self.encryptCodes.setText("Encrypt codes")
         self.comboBoxLayout.addWidget(self.encryptCodes, 2, 0, 1, 1)
 
+        #optimize codes
+        self.optimizeCodes = QtWidgets.QCheckBox()
+        self.optimizeCodes.setObjectName("optimizeCodes")
+        self.optimizeCodes.setText("Optimize codes")
+        self.optimizeCodes.setChecked(True)
+        self.comboBoxLayout.addWidget(self.optimizeCodes, 3, 0, 1, 1)
+
         #Codehook Address Label
         self.codehookLabel = QtWidgets.QLabel()
         self.codehookLabel.setObjectName("codehookLabel")
-        self.comboBoxLayout.addWidget(self.codehookLabel, 3, 0, 1, 1)
+        self.comboBoxLayout.addWidget(self.codehookLabel, 4, 0, 1, 1)
 
         #Codehook Address Textbox
         self.codehookLineEdit = QtWidgets.QLineEdit()
@@ -137,12 +144,12 @@ class SettingsWindow(QtWidgets.QDialog):
         self.codehookLineEdit.setMaxLength(8)
         self.codehookLineEdit.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
         self.codehookLineEdit.setObjectName("codehookLineEdit")
-        self.comboBoxLayout.addWidget(self.codehookLineEdit, 3, 1, 1, 1)
+        self.comboBoxLayout.addWidget(self.codehookLineEdit, 4, 1, 1, 1)
 
         #kernelHook Address Label
         self.kernelHookLabel = QtWidgets.QLabel()
         self.kernelHookLabel.setObjectName("kernelHookLabel")
-        self.comboBoxLayout.addWidget(self.kernelHookLabel, 4, 0, 1, 1)
+        self.comboBoxLayout.addWidget(self.kernelHookLabel, 5, 0, 1, 1)
 
         #kernelHook Address Textbox
         self.kernelHookLineEdit = QtWidgets.QLineEdit()
@@ -163,19 +170,18 @@ class SettingsWindow(QtWidgets.QDialog):
         self.kernelHookLineEdit.setMaxLength(8)
         self.kernelHookLineEdit.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
         self.kernelHookLineEdit.setObjectName("kernelHookLineEdit")
-        self.comboBoxLayout.addWidget(self.kernelHookLineEdit, 4, 1, 1, 1)
+        self.comboBoxLayout.addWidget(self.kernelHookLineEdit, 5, 1, 1, 1)
 
         #verbosity label
         self.verbosityLabel = QtWidgets.QLabel()
         self.verbosityLabel.setObjectName("verbosityLabel")
-        self.comboBoxLayout.addWidget(self.verbosityLabel, 5, 0, 1, 1)
+        self.comboBoxLayout.addWidget(self.verbosityLabel, 6, 0, 1, 1)
 
         #verbosity box
         self.verbositySelect = QtWidgets.QComboBox()
         self.verbositySelect.addItems(["1", "2", "3", "0"])
         self.verbositySelect.setObjectName("verbositySelect")
-        self.comboBoxLayout.addWidget(self.verbositySelect, 5, 1, 1, 1)
-
+        self.comboBoxLayout.addWidget(self.verbositySelect, 6, 1, 1, 1)
 
         self.formLayoutWidget.addLayout(self.comboBoxLayout, 0, 0, 1, 1)
         self.formLayoutWidget.addWidget(self.buttonBox, 1, 0, 1, 1)
@@ -189,6 +195,7 @@ class SettingsWindow(QtWidgets.QDialog):
     def set_edit_fields(self):
         self.protectCodes.setEnabled(True)
         self.encryptCodes.setEnabled(True)
+        self.optimizeCodes.setEnabled(True)
         self.codehookLineEdit.setEnabled(True)
         self.kernelHookLineEdit.setEnabled(True)
         self.verbositySelect.setEnabled(True)

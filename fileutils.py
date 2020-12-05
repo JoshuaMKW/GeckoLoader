@@ -2,30 +2,32 @@ import os
 import struct
 import sys
 
+from pathlib import Path
+
 from tools import align_byte_size, get_alignment
 
-def resource_path(relative_path: str = "") -> str:
+def resource_path(relative_path: str = "") -> Path:
     """ Get absolute path to resource, works for dev and for cx_freeze """
     if getattr(sys, "frozen", False):
         # The application is frozen
-        base_path = os.path.dirname(sys.executable)
+        base_path = Path(sys.executable).parent
     else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        base_path = Path(__file__).parent
         
-    return os.path.join(base_path, relative_path)
+    return base_path / relative_path
 
-def get_program_folder(folder: str = "") -> str:
+def get_program_folder(folder: str = "") -> Path:
     """ Get path to appdata """
     if sys.platform == "win32":
-        datapath = os.path.join(os.getenv("APPDATA"), folder)
+        datapath = Path(os.getenv("APPDATA")) / folder
     elif sys.platform == "darwin":
         if folder:
             folder = "." + folder
-        datapath = os.path.join(os.path.expanduser("~"), "Library", "Application Support", folder)
+        datapath = Path("~/Library/Application Support").expanduser() / folder
     elif "linux" in sys.platform:
         if folder:
             folder = "." + folder
-        datapath = os.path.join(os.getenv("HOME"), folder)
+        datapath = Path.home() / folder
     else:
         raise NotImplementedError(f"{sys.platform} OS is unsupported")
     return datapath
@@ -82,5 +84,4 @@ def read_bool(f, vSize=1):
     return struct.unpack("B", f.read(vSize))[0] > 0
 
 def write_bool(f, val, vSize=1):
-    if val is True: f.write(b'\x00'*(vSize-1) + b'\x01')
-    else: f.write(b'\x00' * vSize)
+    f.write(b'\x00'*(vSize-1) + b'\x01') if val is True else f.write(b'\x00' * vSize)
