@@ -606,7 +606,7 @@ class GUI(object):
                 _status = True
 
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(resource_path(Path("bin/icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(resource_path(Path("bin/icon.ico")))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 
         if _status is False:
             reply = QtWidgets.QErrorMessage()
