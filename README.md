@@ -1,7 +1,13 @@
 # GeckoLoader
 **GeckoLoader is a command line tool, providing an easy way to have near unlimited code space, allowing thousands of lines of gecko code for every Wii/GCN game.**
 
-![Imgur](https://i.imgur.com/pXrBMiL.png)
+**Windows**
+
+![Imgur](https://i.imgur.com/dKKkPaF.png)
+
+**Linux**
+
+![Imgur](https://i.imgur.com/6cDiMW7.png)
 
 **Codes**
 
