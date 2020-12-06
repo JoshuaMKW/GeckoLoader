@@ -1,17 +1,7 @@
-import logging
-import os
-import pickle as cPickle
-import re
-import signal
-import subprocess
-import sys
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from children_ui import PrefWindow
-from dolreader import DolFile
 from fileutils import resource_path
-from kernel import CodeHandler, KernelLoader
 
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, version: str):
@@ -66,7 +56,7 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setWeight(42)
         self.setFont(font)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(str(resource_path(os.path.join("bin", "icon.ico")))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(resource_path("bin/icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.setWindowIcon(icon)
 
         #Top level widget
