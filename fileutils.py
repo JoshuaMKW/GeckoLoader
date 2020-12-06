@@ -1,7 +1,5 @@
-import os
 import struct
 import sys
-
 from pathlib import Path
 
 from tools import align_byte_size, get_alignment

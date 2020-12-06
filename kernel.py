@@ -1,16 +1,15 @@
-import os
+import functools
 import random
 import re
 import sys
 import time
-import functools
-
 from io import BytesIO
 from pathlib import Path
 
 import tools
-from fileutils import read_uint16, read_uint32, write_bool, write_ubyte, write_uint16, write_uint32, write_sint32, get_alignment
 from dolreader import DolFile, SectionCountFullError, UnmappedAddressError
+from fileutils import (get_alignment, read_uint16, read_uint32, write_bool,
+                       write_sint32, write_ubyte, write_uint16, write_uint32)
 
 try:
     import chardet

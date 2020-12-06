@@ -1,4 +1,3 @@
-import os
 import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -17,7 +16,7 @@ class PrefWindow(QtWidgets.QDialog):
         self.setFixedSize(300, 120)
         self.setModal(True)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(str(resource_path(os.path.join("bin", "icon.ico")))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(str(resource_path("bin/icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.setWindowIcon(icon)
 
         #Buttonbox

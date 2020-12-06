@@ -9,7 +9,7 @@ import shutil
 import signal
 import sys
 import tempfile
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from distutils.version import LooseVersion
 from io import StringIO
 from pathlib import Path
@@ -18,7 +18,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from children_ui import PrefWindow, SettingsWindow
 from dolreader import DolFile
-from fileutils import resource_path, get_program_folder
+from fileutils import get_program_folder, resource_path
 from kernel import CodeHandler, KernelLoader
 from main_ui import MainWindow
 from tools import CommandLineParser, color_text
