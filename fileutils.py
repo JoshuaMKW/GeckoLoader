@@ -1,8 +1,10 @@
 import struct
 import sys
+from os import getenv
 from pathlib import Path
 
 from tools import align_byte_size, get_alignment
+
 
 def resource_path(relative_path: str = "") -> Path:
     """ Get absolute path to resource, works for dev and for cx_freeze """
@@ -17,7 +19,7 @@ def resource_path(relative_path: str = "") -> Path:
 def get_program_folder(folder: str = "") -> Path:
     """ Get path to appdata """
     if sys.platform == "win32":
-        datapath = Path(os.getenv("APPDATA")) / folder
+        datapath = Path(getenv("APPDATA")) / folder
     elif sys.platform == "darwin":
         if folder:
             folder = "." + folder
