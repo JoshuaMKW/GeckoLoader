@@ -3,7 +3,7 @@
 
 **Windows**
 
-![Imgur](https://i.imgur.com/dKKkPaF.png)
+![Imgur](https://i.imgur.com/3NiQ4T4.png)
 
 **Linux**
 
