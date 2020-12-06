@@ -435,6 +435,9 @@ class KernelLoader(object):
 
                 write_uint32(self._rawData, CodeHandler.encrypt_key(_key))
 
+        if _lowerAddr + gpModInfoOffset > 0xFFFF:
+            _lowerAddr -= 0x10000
+
         self._gpModDataList = (gpModUpperAddr, gpModInfoOffset)
         self._gpKeyAddrList = (gpKeyUpperAddr, gpKeyOffset)
 

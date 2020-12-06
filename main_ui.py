@@ -655,9 +655,14 @@ class MainWindow(QtWidgets.QMainWindow):
         for item in attributes:
             item = getattr(self, item)
             if isinstance(item, QtWidgets.QLineEdit):
+                strlength = len(item.text())
+                cursorPos = item.cursorPosition()
                 item.setText(item.text().lstrip())
+                item.setCursorPosition(cursorPos - (strlength - len(item.text())))
             elif isinstance(item, QtWidgets.QPlainTextEdit):
+                sliderPos = item.verticalScrollBar().sliderPosition()
                 item.setPlainText(item.toPlainText().lstrip())
+                item.verticalScrollBar().setSliderPosition(sliderPos)
 
     def set_edit_fields(self):
         self.filesLabel.setEnabled(True)

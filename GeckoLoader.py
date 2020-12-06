@@ -660,6 +660,7 @@ class GUI(object):
         self.ui.dolTextBox.textChanged.connect(lambda: self.ui.set_edit_fields())
         self.ui.gctFolderTextBox.textChanged.connect(lambda: self.ui.set_edit_fields())
         self.ui.gctFileTextBox.textChanged.connect(lambda: self.ui.set_edit_fields())
+        self.ui.destTextBox.textChanged.connect(lambda: self.ui.set_edit_fields())
 
         self.ui.allocLineEdit.textChanged.connect(lambda: self._enforce_mask(self.ui.allocLineEdit, 0xFFFFFC))
 
@@ -761,14 +762,14 @@ class GUI(object):
         with redirect_stdout(_outpipe), redirect_stderr(_errpipe):
             try:
                 self.cli._exec(args, tmpdir=TMPDIR)
-            except SystemExit:
+            except (SystemExit, Exception):
                 _status = False
             else:
                 _status = True
 
         if _status is False:
             _msg = f"Arguments failed! GeckoLoader couldn't execute the job\n\nArgs: {args.__repr__()}\n\nstderr: {self._remove_ansi(_errpipe.getvalue())}"
-            self.ui.responses.appendPlainText(_msg.strip() + "\n")
+            self.ui.responses.appendPlainText(_outpipe.getvalue() + "\n\n" + _msg.strip() + "\n")
         else:
             for line in self._remove_ansi(_outpipe.getvalue()).split("\n"):
                 _msg += line.lstrip() + "\n"
