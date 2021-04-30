@@ -115,43 +115,71 @@ class GeckoCode(object):
         }
 
     @staticmethod
-    def bytes_to_codelist(f: IO) -> Generator["GeckoCode"]:
-        while metadata := f.read(4):
-            address = 0x80000000 | (int.from_bytes(
-                metadata, byteorder="big", signed=False) & 0x1FFFFFF)
-            codetype = GeckoCode.int_to_type((int.from_bytes(
-                metadata, "big", signed=False) >> 24) & 0xFF)
-            isPointerType = (codetype & 0x10 != 0)
+    def bytes_to_geckocode(f: IO) -> Generator["GeckoCode"]:
+        metadata = f.read(4)
+        address = 0x80000000 | (int.from_bytes(
+            metadata, byteorder="big", signed=False) & 0x1FFFFFF)
+        codetype = GeckoCode.int_to_type((int.from_bytes(
+            metadata, "big", signed=False) >> 24) & 0xFF)
+        isPointerType = (codetype & 0x10 != 0)
 
-            if codetype == GeckoCode.Type.WRITE_8:
-                info = f.read(4)
-                value = int.from_bytes(info[3:], "big", signed=False)
-                repeat = int.from_bytes(info[:2], "big", signed=False)
-                return Write8(value, repeat, address, isPointerType)
-            elif codetype == GeckoCode.Type.WRITE_16:
-                info = f.read(4)
-                value = int.from_bytes(info[2:], "big", signed=False)
-                repeat = int.from_bytes(info[:2], "big", signed=False)
-                return Write16(value, repeat, address, isPointerType)
-            elif codetype == GeckoCode.Type.WRITE_32:
-                info = f.read(4)
-                value = int.from_bytes(info, "big", signed=False)
-                return Write32(value, address, isPointerType)
-            elif codetype == GeckoCode.Type.WRITE_STR:
-                size = int.from_bytes(f.read(4), "big", signed=False)
-                return WriteString(f.read(size), address, isPointerType)
-            elif codetype == GeckoCode.Type.WRITE_SERIAL:
-                info = f.read(12)
-                value = int.from_bytes(info[:4], "big", signed=False)
-                valueSize = int.from_bytes(info[4:5], "big", signed=False) >> 4
-                repeat = int.from_bytes(info[4:5], "big", signed=False) & 0xF
-                addressInc = int.from_bytes(info[6:8], "big", signed=False)
-                valueInc = int.from_bytes(info[8:], "big", signed=False)
-                return WriteSerial(value, repeat, address, isPointerType, valueSize, addressInc, valueInc)
-            elif codetype == GeckoCode.Type.IF_EQ_32:
-                info = f.read(4)
-                value = int.from_bytes(info, "big", signed=False)
-                return IfEqual32(value, address, endif=(address & 1) == 1)
+        if codetype == GeckoCode.Type.WRITE_8:
+            info = f.read(4)
+            value = int.from_bytes(info[3:], "big", signed=False)
+            repeat = int.from_bytes(info[:2], "big", signed=False)
+            return Write8(value, repeat, address, isPointerType)
+        elif codetype == GeckoCode.Type.WRITE_16:
+            info = f.read(4)
+            value = int.from_bytes(info[2:], "big", signed=False)
+            repeat = int.from_bytes(info[:2], "big", signed=False)
+            return Write16(value, repeat, address, isPointerType)
+        elif codetype == GeckoCode.Type.WRITE_32:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return Write32(value, address, isPointerType)
+        elif codetype == GeckoCode.Type.WRITE_STR:
+            size = int.from_bytes(f.read(4), "big", signed=False)
+            return WriteString(f.read(size), address, isPointerType)
+        elif codetype == GeckoCode.Type.WRITE_SERIAL:
+            info = f.read(12)
+            value = int.from_bytes(info[:4], "big", signed=False)
+            valueSize = int.from_bytes(info[4:5], "big", signed=False) >> 4
+            repeat = int.from_bytes(info[4:5], "big", signed=False) & 0xF
+            addressInc = int.from_bytes(info[6:8], "big", signed=False)
+            valueInc = int.from_bytes(info[8:], "big", signed=False)
+            return WriteSerial(value, repeat, address, isPointerType, valueSize, addressInc, valueInc)
+        elif codetype == GeckoCode.Type.IF_EQ_32:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_NEQ_32:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_GT_32:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_LT_32:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_EQ_16:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_NEQ_16:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_GT_16:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.IF_LT_16:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            return IfEqual32(value, address, endif=(address & 1) == 1)
 
     def __init__(self):
         raise InvalidGeckoCodeError(
