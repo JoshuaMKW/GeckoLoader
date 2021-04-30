@@ -415,7 +415,7 @@ class Write32(GeckoCode):
 
 
 class WriteString(GeckoCode):
-    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, isPointer: bool = False):
+    def __init__(self, value: bytes, address: int = 0x80000000, isPointer: bool = False):
         self.value = value
         self.address = address
         self.isPointer = isPointer
@@ -439,7 +439,7 @@ class WriteString(GeckoCode):
     def __getitem__(self, index: int) -> bytes:
         return self.value[index]
 
-    def __setitem__(self, index: int, value: Union[int, bytes]):
+    def __setitem__(self, index: int, value: bytes):
         if isinstance(value, GeckoCode):
             raise InvalidGeckoCodeError(
                 f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
@@ -454,9 +454,7 @@ class WriteString(GeckoCode):
         return self._value
 
     @value.setter
-    def value(self, value: Union[int, bytes]):
-        if isinstance(value, int):
-            value = (value & 0xFFFFFFFF).to_bytes(4, "big", signed=False)
+    def value(self, value: bytes):
         self._value = value
 
     def virtual_length(self) -> int:
@@ -610,6 +608,491 @@ class IfEqual32(GeckoCode):
 
     def populate_from_bytes(self, f: IO):
         pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfNotEqual32(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(22) If the word at address 0x{self.address:8X} is not equal to 0x{self.value:08X}, run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_NEQ_32
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfGreaterThan32(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(24) If the word at address 0x{self.address:8X} is greater than 0x{self.value:08X}, run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_GT_32
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfLesserThan32(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(26) If the word at address 0x{self.address:8X} is lesser than 0x{self.value:08X}, run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_LT_32
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfEqual16(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self.mask = mask
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(28) If the short at address 0x{self.address:8X} is equal to (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_EQ_16
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfNotEqual16(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self.mask = mask
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(2A) If the short at address 0x{self.address:8X} is not equal to (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_NEQ_16
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfGreaterThan16(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self.mask = mask
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(2C) If the short at address 0x{self.address:8X} is greater than (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_GT_16
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
+
+class IfLesserThan16(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self.mask = mask
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(2E) If the short at address 0x{self.address:8X} is lesser than (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_LT_16
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
+    def apply(self, dol: DolFile) -> bool:
+        for code in self:
+            code.apply(dol)
+        return True
 
     """
     try:
