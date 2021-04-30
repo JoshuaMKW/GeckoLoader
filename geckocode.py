@@ -1,7 +1,7 @@
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Any, IO, List, Tuple, Union
+from typing import Any, Generator, IO, List, Tuple, Union
 
 from dolreader import DolFile
 from fileutils import (write_ubyte, write_uint16, write_uint32)
@@ -114,9 +114,51 @@ class GeckoCode(object):
             GeckoCode.Type.WRITE_BRANCH
         }
 
+    @staticmethod
+    def bytes_to_codelist(f: IO) -> Generator["GeckoCode"]:
+        while metadata := f.read(4):
+            address = 0x80000000 | (int.from_bytes(
+                metadata, byteorder="big", signed=False) & 0x1FFFFFF)
+            codetype = GeckoCode.int_to_type((int.from_bytes(
+                metadata, "big", signed=False) >> 24) & 0xFF)
+            isPointerType = (codetype & 0x10 != 0)
+
+            if codetype == GeckoCode.Type.WRITE_8:
+                info = f.read(4)
+                value = int.from_bytes(info[3:], "big", signed=False)
+                repeat = int.from_bytes(info[:2], "big", signed=False)
+                return Write8(value, repeat, address, isPointerType)
+            elif codetype == GeckoCode.Type.WRITE_16:
+                info = f.read(4)
+                value = int.from_bytes(info[2:], "big", signed=False)
+                repeat = int.from_bytes(info[:2], "big", signed=False)
+                return Write16(value, repeat, address, isPointerType)
+            elif codetype == GeckoCode.Type.WRITE_32:
+                info = f.read(4)
+                value = int.from_bytes(info, "big", signed=False)
+                return Write32(value, address, isPointerType)
+            elif codetype == GeckoCode.Type.WRITE_STR:
+                size = int.from_bytes(f.read(4), "big", signed=False)
+                return WriteString(f.read(size), address, isPointerType)
+            elif codetype == GeckoCode.Type.WRITE_SERIAL:
+                info = f.read(12)
+                value = int.from_bytes(info[:4], "big", signed=False)
+                valueSize = int.from_bytes(info[4:5], "big", signed=False) >> 4
+                repeat = int.from_bytes(info[4:5], "big", signed=False) & 0xF
+                addressInc = int.from_bytes(info[6:8], "big", signed=False)
+                valueInc = int.from_bytes(info[8:], "big", signed=False)
+                return WriteSerial(value, repeat, address, isPointerType, valueSize, addressInc, valueInc)
+            elif codetype == GeckoCode.Type.IF_EQ_32:
+                info = f.read(4)
+                value = int.from_bytes(info, "big", signed=False)
+                return IfEqual32(value, address, endif=(address & 1) == 1)
+
     def __init__(self):
         raise InvalidGeckoCodeError(
             f"Cannot instantiate abstract type {self.__class__.__name__}")
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
     def __len__(self):
         return 0
@@ -176,6 +218,12 @@ class Write8(GeckoCode):
         self.repeat = repeat
         self.isPointer = isPointer
 
+    def __repr__(self) -> str:
+        if self.repeat > 0:
+            return f"(00) Write byte 0x{self.value:2X} to 0x{self.address:8X} {self.repeat + 1} times consecutively"
+        else:
+            return f"(00) Write byte 0x{self.value:2X} to 0x{self.address:8X}"
+
     def __len__(self):
         return 8
 
@@ -232,6 +280,7 @@ class Write8(GeckoCode):
             return True
         return False
 
+
 class Write16(GeckoCode):
     def __init__(self, value: Union[int, bytes], repeat: int = 0, address: int = 0x80000000, isPointer: bool = False):
         self.value = value
@@ -241,6 +290,12 @@ class Write16(GeckoCode):
 
     def __len__(self):
         return 8
+
+    def __repr__(self) -> str:
+        if self.repeat > 0:
+            return f"(02) Write short 0x{self.value:4X} to 0x{self.address:8X} {self.repeat + 1} times consecutively"
+        else:
+            return f"(02) Write short 0x{self.value:4X} to 0x{self.address:8X}"
 
     def __iter__(self):
         self._iterpos = 0
@@ -295,6 +350,7 @@ class Write16(GeckoCode):
             return True
         return False
 
+
 class Write32(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, isPointer: bool = False):
         self.value = value
@@ -303,6 +359,9 @@ class Write32(GeckoCode):
 
     def __len__(self):
         return 8
+
+    def __repr__(self) -> str:
+        return f"(04) Write word 0x{self.value:8X} to 0x{self.address:8X}"
 
     def __iter__(self):
         self._iterpos = 0
@@ -354,6 +413,7 @@ class Write32(GeckoCode):
             return True
         return False
 
+
 class WriteString(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, isPointer: bool = False):
         self.value = value
@@ -362,6 +422,9 @@ class WriteString(GeckoCode):
 
     def __len__(self):
         return 8 + len(self.value)
+
+    def __repr__(self) -> str:
+        return f"(06) Write {len(self) - 8} bytes to 0x{self.address:8X}"
 
     def __iter__(self):
         self._iterpos = 0
@@ -405,7 +468,8 @@ class WriteString(GeckoCode):
             dol.write(self.value)
             return True
         return False
-    
+
+
 class WriteSerial(GeckoCode):
     def __init__(self, value: Union[int, bytes], repeat: int = 0, address: int = 0x80000000, isPointer: bool = False,
                  valueSize: int = 2, addrInc: int = 4, valueInc: int = 0):
@@ -419,6 +483,14 @@ class WriteSerial(GeckoCode):
 
     def __len__(self):
         return 16
+
+    def __repr__(self) -> str:
+        valueType = ("byte", "short", "word")[self.valueSize]
+        if self.repeat > 0:
+            mapping = f"incrementing the value by {self.valueInc} and the address by {self.addressInc} each iteration"
+            return f"(08) Write {valueType} 0x{self.value:8X} to 0x{self.address:8X} {self.repeat + 1} times consecutively, {mapping}"
+        else:
+            return f"(08) Write {valueType} 0x{self.value:8X} to 0x{self.address:8X}"
 
     def __iter__(self):
         self._iterpos = 0
@@ -475,6 +547,70 @@ class WriteSerial(GeckoCode):
             return True
         return False
 
+
+class IfEqual32(GeckoCode):
+    def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
+        self.value = value
+        self.address = address
+        self.endif = endif
+        self._children = []
+
+    def __len__(self):
+        return sum([len(c) for c in self])
+
+    def __repr__(self) -> str:
+        return f"(20) If the word at address 0x{self.address:8X} is equal to 0x{self.value:08X}, run the encapsulated codes"
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> GeckoCode:
+        return self._children[index]
+
+    def __setitem__(self, index: int, value: GeckoCode):
+        if not isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} as a child of {self.__class__.__name__}")
+
+        self._children[index] = value
+
+    @property
+    def children(self) -> List["GeckoCode"]:
+        return self._children
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.IF_EQ_32
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def add_child(self, child: "GeckoCode"):
+        self._children.append(child)
+
+    def remove_child(self, child: "GeckoCode"):
+        self._children.remove(child)
+
+    def virtual_length(self) -> int:
+        return len(self.children) + 1
+
+    def populate_from_bytes(self, f: IO):
+        pass
+
     """
     try:
         if codetype.hex().startswith("2") or codetype.hex().startswith("3"):
@@ -521,31 +657,7 @@ class WriteSerial(GeckoCode):
             return 1
 
     def populate_from_bytes(self, f: IO):
-        while metadata := f.read(4):
-            info = self._rawData.read(4)
-            address = 0x80000000 | (int.from_bytes(
-                metadata, byteorder="big", signed=False) & 0x1FFFFFF)
-            codetype = (int.from_bytes(
-                metadata, "big", signed=False) >> 24) & 0xFF
-            isPointerType = (codetype & 0x10 != 0)
-
-            if (codetype & 0xEF) <= 0x0F:
-                self.add_child(GeckoCode(GeckoCode.Type.WRITE,
-                                         info, address, isPointerType))
-            elif (codetype & 0xEF) <= 0x2F:
-                ifBlock = GeckoCode(GeckoCode.Type.IF, info,
-                                    address, isPointerType)
-                ifBlock.populate_from_bytes(f)
-                self.add_child(GeckoCode(GeckoCode.Type.IF,
-                                         info, address, isPointerType))
-            elif (codetype & 0xEF) <= 0xC5:
-                self.add_child(GeckoCode(GeckoCode.Type.ASM,
-                                         info, address, isPointerType))
-            elif (codetype & 0xEF) <= 0xC7:
-                self.add_child(GeckoCode(GeckoCode.Type.BRANCH,
-                                         info, address, isPointerType))
-            elif (codetype & 0xEF) in {0xE0, 0xE2}:
-                break
+        
 
     def apply(self, dol: DolFile, preprocess: bool = True):
         if not self.is_preprocess_allowed():
