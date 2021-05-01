@@ -187,6 +187,9 @@ class GeckoCode(object):
             f"Cannot instantiate abstract type {self.__class__.__name__}")
 
     def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.__dict__})"
+
+    def __str__(self) -> str:
         return self.__class__.__name__
 
     def __len__(self):
@@ -247,7 +250,7 @@ class Write8(GeckoCode):
         self.repeat = repeat
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         if self.repeat > 0:
             return f"(00) Write byte 0x{self.value:2X} to 0x{self.address:8X} {self.repeat + 1} times consecutively"
         else:
@@ -320,7 +323,7 @@ class Write16(GeckoCode):
     def __len__(self):
         return 8
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         if self.repeat > 0:
             return f"(02) Write short 0x{self.value:4X} to 0x{self.address:8X} {self.repeat + 1} times consecutively"
         else:
@@ -389,7 +392,7 @@ class Write32(GeckoCode):
     def __len__(self):
         return 8
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(04) Write word 0x{self.value:8X} to 0x{self.address:8X}"
 
     def __iter__(self):
@@ -452,7 +455,7 @@ class WriteString(GeckoCode):
     def __len__(self):
         return 8 + len(self.value)
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(06) Write {len(self) - 8} bytes to 0x{self.address:8X}"
 
     def __iter__(self):
@@ -511,7 +514,7 @@ class WriteSerial(GeckoCode):
     def __len__(self):
         return 16
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         valueType = ("byte", "short", "word")[self.valueSize]
         if self.repeat > 0:
             mapping = f"incrementing the value by {self.valueInc} and the address by {self.addressInc} each iteration"
@@ -585,7 +588,7 @@ class IfEqual32(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(20) If the word at address 0x{self.address:8X} is equal to 0x{self.value:08X}, run the encapsulated codes"
 
     def __iter__(self):
@@ -654,7 +657,7 @@ class IfNotEqual32(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(22) If the word at address 0x{self.address:8X} is not equal to 0x{self.value:08X}, run the encapsulated codes"
 
     def __iter__(self):
@@ -723,7 +726,7 @@ class IfGreaterThan32(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(24) If the word at address 0x{self.address:8X} is greater than 0x{self.value:08X}, run the encapsulated codes"
 
     def __iter__(self):
@@ -792,7 +795,7 @@ class IfLesserThan32(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(26) If the word at address 0x{self.address:8X} is lesser than 0x{self.value:08X}, run the encapsulated codes"
 
     def __iter__(self):
@@ -862,7 +865,7 @@ class IfEqual16(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(28) If the short at address 0x{self.address:8X} is equal to (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
 
     def __iter__(self):
@@ -932,7 +935,7 @@ class IfNotEqual16(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(2A) If the short at address 0x{self.address:8X} is not equal to (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
 
     def __iter__(self):
@@ -1002,7 +1005,7 @@ class IfGreaterThan16(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(2C) If the short at address 0x{self.address:8X} is greater than (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
 
     def __iter__(self):
@@ -1072,7 +1075,7 @@ class IfLesserThan16(GeckoCode):
     def __len__(self):
         return sum([len(c) for c in self])
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(2E) If the short at address 0x{self.address:8X} is lesser than (0x{self.value:04X} & 0x{self.mask:04X}), run the encapsulated codes"
 
     def __iter__(self):
@@ -1138,7 +1141,7 @@ class BaseAddressLoad(GeckoCode):
         self.register = register
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
         if flags == 0b000:
@@ -1212,7 +1215,7 @@ class BaseAddressSet(GeckoCode):
         self.register = register
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
         if flags == 0b000:
@@ -1287,7 +1290,7 @@ class BaseAddressStore(GeckoCode):
         self.register = register
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
         if flags == 0b000:
@@ -1351,7 +1354,7 @@ class BaseAddressGetNext(GeckoCode):
     def __init__(self, value: int = 0x80000000):
         self.value = value
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(46) Set the base address to be the next Gecko Code's address + {self.value}"
 
     def __len__(self):
@@ -1408,7 +1411,7 @@ class PointerAddressLoad(GeckoCode):
         self.register = register
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
         if flags == 0b000:
@@ -1482,7 +1485,7 @@ class PointerAddressSet(GeckoCode):
         self.register = register
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
         if flags == 0b000:
@@ -1557,7 +1560,7 @@ class PointerAddressStore(GeckoCode):
         self.register = register
         self.isPointer = isPointer
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
         if flags == 0b000:
@@ -1621,7 +1624,7 @@ class PointerAddressGetNext(GeckoCode):
     def __init__(self, value: int = 0x80000000):
         self.value = value
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(4E) Set the base address to be the next Gecko Code's address + {self.value}"
 
     def __len__(self):
@@ -1676,7 +1679,7 @@ class SetRepeat(GeckoCode):
         self.repeat = repeat
         self.b = b
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(60) Store next code address and number of times to repeat in b{self.b}"
 
     def __len__(self):
@@ -1694,7 +1697,7 @@ class ExecuteRepeat(GeckoCode):
     def __init__(self, b: int = 0):
         self.b = b
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         return f"(62) If NNNN stored in b{self.b} is > 0, it is decreased by 1 and the code handler jumps to the next code address stored in b{self.b}"
 
     def __len__(self):
