@@ -29,6 +29,7 @@ class GeckoCode(object):
         BASE_ADDR_LOAD = 0x40
         BASE_ADDR_SET = 0x42
         BASE_ADDR_STORE = 0x44
+        BASE_GET_NEXT = 0x46
         PTR_ADDR_LOAD = 0x48
         PTR_ADDR_SET = 0x4A
         PTR_ADDR_STORE = 0x4C
@@ -1121,6 +1122,538 @@ class IfLesserThan16(GeckoCode):
         for code in self:
             code.apply(dol)
         return True
+
+class BaseAddressLoad(GeckoCode):
+    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+        self.value = value
+        self.flags = flags
+        self.register = register
+        self.isPointer = isPointer
+
+    def __repr__(self) -> str:
+        addrstr = "pointer address" if self.isPointer else "base address"
+        flags = self.flags
+        if flags == 0b000:
+            return f"(40) Set the base address to the value at address [0x{self.value}]"
+        if flags == 0b001:
+            return f"(40) Set the base address to the value at address [gr{self.register} + 0x{self.value}]"
+        if flags == 0b010:
+            return f"(40) Set the base address to the value at address [{addrstr} + 0x{self.value}]"
+        if flags == 0b011:
+            return f"(40) Set the base address to the value at address [{addrstr} + gr{self.register} + 0x{self.value}]"
+        if flags == 0b100:
+            return f"(40) Add the value at address [0x{self.value}] to the base address"
+        if flags == 0b101:
+            return f"(40) Add the value at address [gr{self.register} + 0x{self.value}] to the base address"
+        if flags == 0b110:
+            return f"(40) Add the value at address [{addrstr} + 0x{self.value}] to the base address"
+        if flags == 0b111:
+            return f"(40) Add the value at address [{addrstr} + gr{self.register} + 0x{self.value}] to the base address"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.BASE_ADDR_LOAD
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class BaseAddressSet(GeckoCode):
+    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+        self.value = value
+        self.flags = flags
+        self.register = register
+        self.isPointer = isPointer
+
+    def __repr__(self) -> str:
+        addrstr = "pointer address" if self.isPointer else "base address"
+        flags = self.flags
+        if flags == 0b000:
+            return f"(42) Set the base address to the value 0x{self.value}"
+        elif flags == 0b001:
+            return f"(42) Set the base address to the value (gr{self.register} + 0x{self.value})"
+        elif flags == 0b010:
+            return f"(42) Set the base address to the value ({addrstr} + 0x{self.value})"
+        elif flags == 0b011:
+            return f"(42) Set the base address to the value ({addrstr} + gr{self.register} + 0x{self.value})"
+        elif flags == 0b100:
+            return f"(42) Add the value 0x{self.value} to the base address"
+        elif flags == 0b101:
+            return f"(42) Add the value (gr{self.register} + 0x{self.value}) to the base address"
+        elif flags == 0b110:
+            return f"(42) Add the value ({addrstr} + 0x{self.value}) to the base address"
+        elif flags == 0b111:
+            return f"(42) Add the value ({addrstr} + gr{self.register}) + 0x{self.value} to the base address"
+        return f"(42) Invalid flag {flags}"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.BASE_ADDR_SET
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class BaseAddressStore(GeckoCode):
+    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+        self.value = value
+        self.flags = flags
+        self.register = register
+        self.isPointer = isPointer
+
+    def __repr__(self) -> str:
+        addrstr = "pointer address" if self.isPointer else "base address"
+        flags = self.flags
+        if flags == 0b000:
+            return f"(44) Store the base address at address [0x{self.value}]"
+        elif flags == 0b001:
+            return f"(44) Store the base address at address [gr{self.register} + 0x{self.value}]"
+        elif flags == 0b010:
+            return f"(44) Store the base address at address [{addrstr} + 0x{self.value}]"
+        elif flags == 0b011:
+            return f"(44) Store the base address at address [{addrstr} + gr{self.register} + 0x{self.value}]"
+        return f"(44) Invalid flag {flags}"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.BASE_ADDR_STORE
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class BaseAddressGetNext(GeckoCode):
+    def __init__(self, value: int = 0x80000000):
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f"(46) Set the base address to be the next Gecko Code's address + {self.value}"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.BASE_GET_NEXT
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class PointerAddressLoad(GeckoCode):
+    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+        self.value = value
+        self.flags = flags
+        self.register = register
+        self.isPointer = isPointer
+
+    def __repr__(self) -> str:
+        addrstr = "pointer address" if self.isPointer else "base address"
+        flags = self.flags
+        if flags == 0b000:
+            return f"(48) Set the pointer address to the value at address [0x{self.value}]"
+        if flags == 0b001:
+            return f"(48) Set the pointer address to the value at address [gr{self.register} + 0x{self.value}]"
+        if flags == 0b010:
+            return f"(48) Set the pointer address to the value at address [{addrstr} + 0x{self.value}]"
+        if flags == 0b011:
+            return f"(48) Set the pointer address to the value at address [{addrstr} + gr{self.register} + 0x{self.value}]"
+        if flags == 0b100:
+            return f"(48) Add the value at address [0x{self.value}] to the pointer address"
+        if flags == 0b101:
+            return f"(48) Add the value at address [gr{self.register} + 0x{self.value}] to the pointer address"
+        if flags == 0b110:
+            return f"(48) Add the value at address [{addrstr} + 0x{self.value}] to the pointer address"
+        if flags == 0b111:
+            return f"(48) Add the value at address [{addrstr} + gr{self.register} + 0x{self.value}] to the pointer address"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.PTR_ADDR_LOAD
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class PointerAddressSet(GeckoCode):
+    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+        self.value = value
+        self.flags = flags
+        self.register = register
+        self.isPointer = isPointer
+
+    def __repr__(self) -> str:
+        addrstr = "pointer address" if self.isPointer else "base address"
+        flags = self.flags
+        if flags == 0b000:
+            return f"(4A) Set the pointer address to the value 0x{self.value}"
+        elif flags == 0b001:
+            return f"(4A) Set the pointer address to the value (gr{self.register} + 0x{self.value})"
+        elif flags == 0b010:
+            return f"(4A) Set the pointer address to the value ({addrstr} + 0x{self.value})"
+        elif flags == 0b011:
+            return f"(4A) Set the pointer address to the value ({addrstr} + gr{self.register} + 0x{self.value})"
+        elif flags == 0b100:
+            return f"(4A) Add the value 0x{self.value} to the pointer address"
+        elif flags == 0b101:
+            return f"(4A) Add the value (gr{self.register} + 0x{self.value}) to the pointer address"
+        elif flags == 0b110:
+            return f"(4A) Add the value ({addrstr} + 0x{self.value}) to the pointer address"
+        elif flags == 0b111:
+            return f"(4A) Add the value ({addrstr} + gr{self.register}) + 0x{self.value} to the pointer address"
+        return f"(4A) Invalid flag {flags}"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.PTR_ADDR_SET
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class PointerAddressStore(GeckoCode):
+    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+        self.value = value
+        self.flags = flags
+        self.register = register
+        self.isPointer = isPointer
+
+    def __repr__(self) -> str:
+        addrstr = "pointer address" if self.isPointer else "base address"
+        flags = self.flags
+        if flags == 0b000:
+            return f"(4C) Store the pointer address at address [0x{self.value}]"
+        elif flags == 0b001:
+            return f"(4C) Store the pointer address at address [gr{self.register} + 0x{self.value}]"
+        elif flags == 0b010:
+            return f"(4C) Store the pointer address at address [{addrstr} + 0x{self.value}]"
+        elif flags == 0b011:
+            return f"(4C) Store the pointer address at address [{addrstr} + gr{self.register} + 0x{self.value}]"
+        return f"(4C) Invalid flag {flags}"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.PTR_ADDR_STORE
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFFFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFFFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+class PointerAddressGetNext(GeckoCode):
+    def __init__(self, value: int = 0x80000000):
+        self.value = value
+
+    def __repr__(self) -> str:
+        return f"(4E) Set the base address to be the next Gecko Code's address + {self.value}"
+
+    def __len__(self):
+        return 8
+
+    def __iter__(self):
+        self._iterpos = 0
+        return self
+
+    def __next__(self):
+        try:
+            return self[self._iterpos]
+        except IndexError:
+            raise StopIteration
+
+    def __getitem__(self, index: int) -> int:
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        return self.value
+
+    def __setitem__(self, index: int, value: Union[int, bytes]):
+        if index != 0:
+            raise IndexError(
+                f"Index [{index}] is beyond the virtual code size")
+        elif isinstance(value, GeckoCode):
+            raise InvalidGeckoCodeError(
+                f"Cannot assign {value.__class__.__name__} to the data of {self.__class__.__name__}")
+
+        self.value = value
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.PTR_GET_NEXT
+
+    @property
+    def value(self) -> int:
+        return self.value & 0xFFFF
+
+    @value.setter
+    def value(self, value: Union[int, bytes]):
+        if isinstance(value, bytes):
+            value = int.from_bytes(value, "big", signed=False)
+        self.value = value & 0xFFFF
+
+    def virtual_length(self) -> int:
+        return 1
 
     """
     try:
