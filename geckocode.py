@@ -643,6 +643,7 @@ class IfEqual32(GeckoCode):
             code.apply(dol)
         return True
 
+
 class IfNotEqual32(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
         self.value = value
@@ -710,6 +711,7 @@ class IfNotEqual32(GeckoCode):
         for code in self:
             code.apply(dol)
         return True
+
 
 class IfGreaterThan32(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
@@ -779,6 +781,7 @@ class IfGreaterThan32(GeckoCode):
             code.apply(dol)
         return True
 
+
 class IfLesserThan32(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False):
         self.value = value
@@ -846,6 +849,7 @@ class IfLesserThan32(GeckoCode):
         for code in self:
             code.apply(dol)
         return True
+
 
 class IfEqual16(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
@@ -916,6 +920,7 @@ class IfEqual16(GeckoCode):
             code.apply(dol)
         return True
 
+
 class IfNotEqual16(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
         self.value = value
@@ -984,6 +989,7 @@ class IfNotEqual16(GeckoCode):
         for code in self:
             code.apply(dol)
         return True
+
 
 class IfGreaterThan16(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
@@ -1054,6 +1060,7 @@ class IfGreaterThan16(GeckoCode):
             code.apply(dol)
         return True
 
+
 class IfLesserThan16(GeckoCode):
     def __init__(self, value: Union[int, bytes], address: int = 0x80000000, endif: bool = False, mask: int = 0xFFFF):
         self.value = value
@@ -1122,6 +1129,7 @@ class IfLesserThan16(GeckoCode):
         for code in self:
             code.apply(dol)
         return True
+
 
 class BaseAddressLoad(GeckoCode):
     def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
@@ -1195,6 +1203,7 @@ class BaseAddressLoad(GeckoCode):
 
     def virtual_length(self) -> int:
         return 1
+
 
 class BaseAddressSet(GeckoCode):
     def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
@@ -1270,6 +1279,7 @@ class BaseAddressSet(GeckoCode):
     def virtual_length(self) -> int:
         return 1
 
+
 class BaseAddressStore(GeckoCode):
     def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
@@ -1336,6 +1346,7 @@ class BaseAddressStore(GeckoCode):
     def virtual_length(self) -> int:
         return 1
 
+
 class BaseAddressGetNext(GeckoCode):
     def __init__(self, value: int = 0x80000000):
         self.value = value
@@ -1388,6 +1399,7 @@ class BaseAddressGetNext(GeckoCode):
 
     def virtual_length(self) -> int:
         return 1
+
 
 class PointerAddressLoad(GeckoCode):
     def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
@@ -1461,6 +1473,7 @@ class PointerAddressLoad(GeckoCode):
 
     def virtual_length(self) -> int:
         return 1
+
 
 class PointerAddressSet(GeckoCode):
     def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
@@ -1536,6 +1549,7 @@ class PointerAddressSet(GeckoCode):
     def virtual_length(self) -> int:
         return 1
 
+
 class PointerAddressStore(GeckoCode):
     def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
@@ -1602,6 +1616,7 @@ class PointerAddressStore(GeckoCode):
     def virtual_length(self) -> int:
         return 1
 
+
 class PointerAddressGetNext(GeckoCode):
     def __init__(self, value: int = 0x80000000):
         self.value = value
@@ -1651,6 +1666,43 @@ class PointerAddressGetNext(GeckoCode):
         if isinstance(value, bytes):
             value = int.from_bytes(value, "big", signed=False)
         self.value = value & 0xFFFF
+
+    def virtual_length(self) -> int:
+        return 1
+
+
+class SetRepeat(GeckoCode):
+    def __init__(self, repeat: int = 0, b: int = 0):
+        self.repeat = repeat
+        self.b = b
+
+    def __repr__(self) -> str:
+        return f"(60) Store next code address and number of times to repeat in b{self.b}"
+
+    def __len__(self):
+        return 8
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.REPEAT_SET
+
+    def virtual_length(self) -> int:
+        return 1
+
+
+class ExecuteRepeat(GeckoCode):
+    def __init__(self, b: int = 0):
+        self.b = b
+
+    def __repr__(self) -> str:
+        return f"(62) If NNNN stored in b{self.b} is > 0, it is decreased by 1 and the code handler jumps to the next code address stored in b{self.b}"
+
+    def __len__(self):
+        return 8
+
+    @property
+    def codetype(self) -> GeckoCode.Type:
+        return GeckoCode.Type.REPEAT_EXEC
 
     def virtual_length(self) -> int:
         return 1
