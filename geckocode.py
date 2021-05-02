@@ -156,31 +156,71 @@ class GeckoCode(object):
         elif codetype == GeckoCode.Type.IF_NEQ_32:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfNotEqual32(value, address, endif=(address & 1) == 1)
         elif codetype == GeckoCode.Type.IF_GT_32:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfGreaterThan32(value, address, endif=(address & 1) == 1)
         elif codetype == GeckoCode.Type.IF_LT_32:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfLesserThan32(value, address, endif=(address & 1) == 1)
         elif codetype == GeckoCode.Type.IF_EQ_16:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfEqual16(value, address, endif=(address & 1) == 1)
         elif codetype == GeckoCode.Type.IF_NEQ_16:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfNotEqual16(value, address, endif=(address & 1) == 1)
         elif codetype == GeckoCode.Type.IF_GT_16:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfGreaterThan16(value, address, endif=(address & 1) == 1)
         elif codetype == GeckoCode.Type.IF_LT_16:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False)
-            return IfEqual32(value, address, endif=(address & 1) == 1)
+            return IfLesserThan16(value, address, endif=(address & 1) == 1)
+        elif codetype == GeckoCode.Type.BASE_ADDR_LOAD:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return BaseAddressLoad(value, flags & 0x01110000, flags & 0xF, isPointerType)
+        elif codetype == GeckoCode.Type.BASE_ADDR_SET:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return BaseAddressSet(value, flags & 0x01110000, flags & 0xF, isPointerType)
+        elif codetype == GeckoCode.Type.BASE_ADDR_STORE:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return BaseAddressStore(value, flags & 0x00110000, flags & 0xF, isPointerType)
+        elif codetype == GeckoCode.Type.BASE_GET_NEXT:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return BaseAddressGetNext(value)
+        elif codetype == GeckoCode.Type.PTR_ADDR_LOAD:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return PointerAddressLoad(value, flags & 0x01110000, flags & 0xF, isPointerType)
+        elif codetype == GeckoCode.Type.PTR_ADDR_SET:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return PointerAddressSet(value, flags & 0x01110000, flags & 0xF, isPointerType)
+        elif codetype == GeckoCode.Type.PTR_ADDR_STORE:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return PointerAddressStore(value, flags & 0x00110000, flags & 0xF, isPointerType)
+        elif codetype == GeckoCode.Type.PTR_GET_NEXT:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = int.from_bytes(metadata, "big", signed=False)
+            return PointerAddressGetNext(value)
 
     def __init__(self):
         raise InvalidGeckoCodeError(
@@ -1135,7 +1175,7 @@ class IfLesserThan16(GeckoCode):
 
 
 class BaseAddressLoad(GeckoCode):
-    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+    def __init__(self, value: int, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
         self.flags = flags
         self.register = register
@@ -1144,21 +1184,21 @@ class BaseAddressLoad(GeckoCode):
     def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
-        if flags == 0b000:
+        if flags == 0x000:
             return f"(40) Set the base address to the value at address [0x{self.value}]"
-        if flags == 0b001:
+        if flags == 0x001:
             return f"(40) Set the base address to the value at address [gr{self.register} + 0x{self.value}]"
-        if flags == 0b010:
+        if flags == 0x010:
             return f"(40) Set the base address to the value at address [{addrstr} + 0x{self.value}]"
-        if flags == 0b011:
+        if flags == 0x011:
             return f"(40) Set the base address to the value at address [{addrstr} + gr{self.register} + 0x{self.value}]"
-        if flags == 0b100:
+        if flags == 0x100:
             return f"(40) Add the value at address [0x{self.value}] to the base address"
-        if flags == 0b101:
+        if flags == 0x101:
             return f"(40) Add the value at address [gr{self.register} + 0x{self.value}] to the base address"
-        if flags == 0b110:
+        if flags == 0x110:
             return f"(40) Add the value at address [{addrstr} + 0x{self.value}] to the base address"
-        if flags == 0b111:
+        if flags == 0x111:
             return f"(40) Add the value at address [{addrstr} + gr{self.register} + 0x{self.value}] to the base address"
 
     def __len__(self):
@@ -1209,7 +1249,7 @@ class BaseAddressLoad(GeckoCode):
 
 
 class BaseAddressSet(GeckoCode):
-    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+    def __init__(self, value: int, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
         self.flags = flags
         self.register = register
@@ -1218,21 +1258,21 @@ class BaseAddressSet(GeckoCode):
     def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
-        if flags == 0b000:
+        if flags == 0x000:
             return f"(42) Set the base address to the value 0x{self.value}"
-        elif flags == 0b001:
+        elif flags == 0x001:
             return f"(42) Set the base address to the value (gr{self.register} + 0x{self.value})"
-        elif flags == 0b010:
+        elif flags == 0x010:
             return f"(42) Set the base address to the value ({addrstr} + 0x{self.value})"
-        elif flags == 0b011:
+        elif flags == 0x011:
             return f"(42) Set the base address to the value ({addrstr} + gr{self.register} + 0x{self.value})"
-        elif flags == 0b100:
+        elif flags == 0x100:
             return f"(42) Add the value 0x{self.value} to the base address"
-        elif flags == 0b101:
+        elif flags == 0x101:
             return f"(42) Add the value (gr{self.register} + 0x{self.value}) to the base address"
-        elif flags == 0b110:
+        elif flags == 0x110:
             return f"(42) Add the value ({addrstr} + 0x{self.value}) to the base address"
-        elif flags == 0b111:
+        elif flags == 0x111:
             return f"(42) Add the value ({addrstr} + gr{self.register}) + 0x{self.value} to the base address"
         return f"(42) Invalid flag {flags}"
 
@@ -1284,7 +1324,7 @@ class BaseAddressSet(GeckoCode):
 
 
 class BaseAddressStore(GeckoCode):
-    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+    def __init__(self, value: int, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
         self.flags = flags
         self.register = register
@@ -1293,13 +1333,13 @@ class BaseAddressStore(GeckoCode):
     def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
-        if flags == 0b000:
+        if flags == 0x000:
             return f"(44) Store the base address at address [0x{self.value}]"
-        elif flags == 0b001:
+        elif flags == 0x001:
             return f"(44) Store the base address at address [gr{self.register} + 0x{self.value}]"
-        elif flags == 0b010:
+        elif flags == 0x010:
             return f"(44) Store the base address at address [{addrstr} + 0x{self.value}]"
-        elif flags == 0b011:
+        elif flags == 0x011:
             return f"(44) Store the base address at address [{addrstr} + gr{self.register} + 0x{self.value}]"
         return f"(44) Invalid flag {flags}"
 
@@ -1351,7 +1391,7 @@ class BaseAddressStore(GeckoCode):
 
 
 class BaseAddressGetNext(GeckoCode):
-    def __init__(self, value: int = 0x80000000):
+    def __init__(self, value: int):
         self.value = value
 
     def __str__(self) -> str:
@@ -1405,7 +1445,7 @@ class BaseAddressGetNext(GeckoCode):
 
 
 class PointerAddressLoad(GeckoCode):
-    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+    def __init__(self, value: int, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
         self.flags = flags
         self.register = register
@@ -1414,21 +1454,21 @@ class PointerAddressLoad(GeckoCode):
     def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
-        if flags == 0b000:
+        if flags == 0x000:
             return f"(48) Set the pointer address to the value at address [0x{self.value}]"
-        if flags == 0b001:
+        if flags == 0x001:
             return f"(48) Set the pointer address to the value at address [gr{self.register} + 0x{self.value}]"
-        if flags == 0b010:
+        if flags == 0x010:
             return f"(48) Set the pointer address to the value at address [{addrstr} + 0x{self.value}]"
-        if flags == 0b011:
+        if flags == 0x011:
             return f"(48) Set the pointer address to the value at address [{addrstr} + gr{self.register} + 0x{self.value}]"
-        if flags == 0b100:
+        if flags == 0x100:
             return f"(48) Add the value at address [0x{self.value}] to the pointer address"
-        if flags == 0b101:
+        if flags == 0x101:
             return f"(48) Add the value at address [gr{self.register} + 0x{self.value}] to the pointer address"
-        if flags == 0b110:
+        if flags == 0x110:
             return f"(48) Add the value at address [{addrstr} + 0x{self.value}] to the pointer address"
-        if flags == 0b111:
+        if flags == 0x111:
             return f"(48) Add the value at address [{addrstr} + gr{self.register} + 0x{self.value}] to the pointer address"
 
     def __len__(self):
@@ -1479,7 +1519,7 @@ class PointerAddressLoad(GeckoCode):
 
 
 class PointerAddressSet(GeckoCode):
-    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+    def __init__(self, value: int, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
         self.flags = flags
         self.register = register
@@ -1488,21 +1528,21 @@ class PointerAddressSet(GeckoCode):
     def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
-        if flags == 0b000:
+        if flags == 0x000:
             return f"(4A) Set the pointer address to the value 0x{self.value}"
-        elif flags == 0b001:
+        elif flags == 0x001:
             return f"(4A) Set the pointer address to the value (gr{self.register} + 0x{self.value})"
-        elif flags == 0b010:
+        elif flags == 0x010:
             return f"(4A) Set the pointer address to the value ({addrstr} + 0x{self.value})"
-        elif flags == 0b011:
+        elif flags == 0x011:
             return f"(4A) Set the pointer address to the value ({addrstr} + gr{self.register} + 0x{self.value})"
-        elif flags == 0b100:
+        elif flags == 0x100:
             return f"(4A) Add the value 0x{self.value} to the pointer address"
-        elif flags == 0b101:
+        elif flags == 0x101:
             return f"(4A) Add the value (gr{self.register} + 0x{self.value}) to the pointer address"
-        elif flags == 0b110:
+        elif flags == 0x110:
             return f"(4A) Add the value ({addrstr} + 0x{self.value}) to the pointer address"
-        elif flags == 0b111:
+        elif flags == 0x111:
             return f"(4A) Add the value ({addrstr} + gr{self.register}) + 0x{self.value} to the pointer address"
         return f"(4A) Invalid flag {flags}"
 
@@ -1554,7 +1594,7 @@ class PointerAddressSet(GeckoCode):
 
 
 class PointerAddressStore(GeckoCode):
-    def __init__(self, value: int = 0x80000000, flags: int = 0, register: int = 0, isPointer: bool = False):
+    def __init__(self, value: int, flags: int = 0, register: int = 0, isPointer: bool = False):
         self.value = value
         self.flags = flags
         self.register = register
@@ -1563,13 +1603,13 @@ class PointerAddressStore(GeckoCode):
     def __str__(self) -> str:
         addrstr = "pointer address" if self.isPointer else "base address"
         flags = self.flags
-        if flags == 0b000:
+        if flags == 0x000:
             return f"(4C) Store the pointer address at address [0x{self.value}]"
-        elif flags == 0b001:
+        elif flags == 0x001:
             return f"(4C) Store the pointer address at address [gr{self.register} + 0x{self.value}]"
-        elif flags == 0b010:
+        elif flags == 0x010:
             return f"(4C) Store the pointer address at address [{addrstr} + 0x{self.value}]"
-        elif flags == 0b011:
+        elif flags == 0x011:
             return f"(4C) Store the pointer address at address [{addrstr} + gr{self.register} + 0x{self.value}]"
         return f"(4C) Invalid flag {flags}"
 
@@ -1621,7 +1661,7 @@ class PointerAddressStore(GeckoCode):
 
 
 class PointerAddressGetNext(GeckoCode):
-    def __init__(self, value: int = 0x80000000):
+    def __init__(self, value: int):
         self.value = value
 
     def __str__(self) -> str:
