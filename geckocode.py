@@ -267,20 +267,79 @@ class GeckoCode(object):
         elif codetype == GeckoCode.Type.RETURN:
             info = f.read(4)
             value = int.from_bytes(info, "big", signed=False) & 0xF
-            flags = (int.from_bytes(metadata, "big", signed=False) & 0x00300000) >> 18
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00300000) >> 20
             return Return(value)
         elif codetype == GeckoCode.Type.GOTO:
             info = f.read(4)
             value = int.from_bytes(metadata, "big", signed=False) & 0xFFFF
-            flags = (int.from_bytes(metadata, "big", signed=False) & 0x00300000) >> 18
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00300000) >> 20
             return Goto(flags, value)
         elif codetype == GeckoCode.Type.GOSUB:
             info = f.read(4)
             value = int.from_bytes(metadata, "big", signed=False) & 0xFFFF
-            flags = (int.from_bytes(metadata, "big", signed=False) & 0x00300000) >> 18
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00300000) >> 20
             register = int.from_bytes(info, "big", signed=False) & 0xF
             return Gosub(flags, value, register)
-            
+        elif codetype == GeckoCode.Type.GECKO_REG_SET:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00110000) >> 16
+            register = int.from_bytes(metadata, "big", signed=False) & 0xF
+            return GeckoRegisterSet(value, flags, register, isPointerType)
+        elif codetype == GeckoCode.Type.GECKO_REG_LOAD:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00310000) >> 16
+            register = int.from_bytes(metadata, "big", signed=False) & 0xF
+            return GeckoRegisterLoad(value, flags, register, isPointerType)
+        elif codetype == GeckoCode.Type.GECKO_REG_STORE:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00310000) >> 16
+            register = int.from_bytes(metadata, "big", signed=False) & 0xF
+            repeat = (int.from_bytes(metadata, "big",
+                                     signed=False) & 0xFFF0) >> 4
+            return GeckoRegisterStore(value, repeat, flags, register, isPointerType)
+        elif codetype == GeckoCode.Type.GECKO_REG_OPERATE_I:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00030000) >> 16
+            register = int.from_bytes(metadata, "big", signed=False) & 0xF
+            opType = GeckoCode.ArithmeticType(
+                (int.from_bytes(metadata, "big", signed=False) & 0x00F00000) >> 18)
+            return GeckoRegisterOperateI(value, opType, flags, register)
+        elif codetype == GeckoCode.Type.GECKO_REG_OPERATE:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False) & 0xF
+            flags = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00030000) >> 16
+            register = int.from_bytes(metadata, "big", signed=False) & 0xF
+            opType = GeckoCode.ArithmeticType(
+                (int.from_bytes(metadata, "big", signed=False) & 0x00F00000) >> 18)
+            return GeckoRegisterOperate(value, opType, flags, register)
+        elif codetype == GeckoCode.Type.MEMCPY_1:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            size = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00FFFF00) >> 8
+            register = (int.from_bytes(metadata, "big", signed=False) & 0xF0) >> 4
+            otherRegister = int.from_bytes(metadata, "big", signed=False) & 0xF
+            return MemoryCopyTo(value, size, otherRegister, register, isPointerType)
+        elif codetype == GeckoCode.Type.MEMCPY_2:
+            info = f.read(4)
+            value = int.from_bytes(info, "big", signed=False)
+            size = (int.from_bytes(metadata, "big",
+                                    signed=False) & 0x00FFFF00) >> 8
+            register = (int.from_bytes(metadata, "big", signed=False) & 0xF0) >> 4
+            otherRegister = int.from_bytes(metadata, "big", signed=False) & 0xF
+            return MemoryCopyFrom(value, size, otherRegister, register, isPointerType)
 
     def __init__(self):
         raise InvalidGeckoCodeError(
