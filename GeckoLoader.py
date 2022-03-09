@@ -1,6 +1,8 @@
 # Written by JoshuaMK 2020
 
+from argparse import Namespace
 import atexit
+from enum import Enum
 import logging
 import os
 import pickle as cPickle
@@ -13,11 +15,12 @@ from contextlib import redirect_stderr, redirect_stdout
 from distutils.version import LooseVersion
 from io import StringIO
 from pathlib import Path
+from typing import Any, Dict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from children_ui import PrefWindow, SettingsWindow
-from dolreader import DolFile
+from dolreader.dol import DolFile
 from fileutils import get_program_folder, resource_path
 from kernel import CodeHandler, KernelLoader
 from main_ui import MainWindow
@@ -164,7 +167,7 @@ class GeckoLoaderCli(CommandLineParser):
 
         for line in logo:
             print(color_text(
-                line, [('║', TREDLIT), ('╔╚╝╗═', TRED)], TGREENLIT))
+                line, textToColor={'║': TREDLIT, '╔': TRED, '╚': TRED, '╝': TRED, '╗': TRED, '═': TRED}, defaultColor=TGREENLIT))
 
     def check_updates(self):
         repoChecker = Updater('JoshuaMKW', 'GeckoLoader')
@@ -193,16 +196,16 @@ class GeckoLoaderCli(CommandLineParser):
 
         print('')
 
-    def _validate_args(self, args) -> dict:
+    def _validate_args(self, args: Namespace) -> Dict[str, Any]:
         dolFile = Path(args.dolfile).resolve()
         codeList = Path(args.codelist).resolve()
 
         if args.dest:
             dest = Path(args.dest).resolve()
             if dest.suffix == "":
-                dest = dest / args.dolfile.name
+                dest = dest / dolFile.name
         else:
-            dest = Path.cwd() / "geckoloader-build" / args.dolfile.name
+            dest = Path.cwd() / "geckoloader-build" / dolFile.name
 
         if args.alloc:
             try:
@@ -226,9 +229,9 @@ class GeckoLoaderCli(CommandLineParser):
         else:
             _codehook = None
 
-        if args.handler == CodeHandler.Types.MINI:
+        if args.handler == KernelLoader.HandlerType.MINI:
             codeHandlerFile = Path('bin/codehandler-mini.bin')
-        elif args.handler == CodeHandler.Types.FULL:
+        elif args.handler == KernelLoader.HandlerType.FULL:
             codeHandlerFile = Path('bin/codehandler.bin')
         else:
             self.error(color_text(
@@ -266,22 +269,27 @@ class GeckoLoaderCli(CommandLineParser):
 
             with resource_path(context["codehandler"]).open("rb") as handler:
                 codeHandler = CodeHandler(handler)
-                codeHandler.allocation = context["allocation"]
-                codeHandler.hookAddress = context["hookaddress"]
-                codeHandler.hookType = context["hooktype"]
-                codeHandler.includeAll = context["includeall"]
-                codeHandler.optimizeList = context["optimize"]
 
             with resource_path("bin/geckoloader.bin").open("rb") as kernelfile:
-                geckoKernel = KernelLoader(kernelfile, cli)
-                geckoKernel.initAddress = context["initaddress"]
+                geckoKernel = KernelLoader(kernelfile,
+                                           hookType=context["hooktype"],
+                                           hookAddress=context["hookaddress"],
+                                           initAddress=context["initaddress"],
+                                           allocation=context["allocation"],
+                                           includeAllCodes=context["includeall"],
+                                           optimizeCodes=context["optimize"],
+                                           protectCodes=context["protect"],
+                                           encryptCodes=context["encrypt"],
+                                           cli=cli)
                 geckoKernel.verbosity = context["verbosity"]
-                geckoKernel.quiet = context["quiet"]
-                geckoKernel.encrypt = context["encrypt"]
-                geckoKernel.protect = context["protect"]
+                if context["quiet"] == True:
+                    geckoKernel.silence()
+                else:
+                    geckoKernel.desilence()
 
             if not context["destination"].parent.exists():
-                context["destination"].parent.mkdir(parents=True, exist_ok=True)
+                context["destination"].parent.mkdir(
+                    parents=True, exist_ok=True)
 
             geckoKernel.build(context["codepath"], dolFile,
                               codeHandler, TMPDIR, context["destination"])
@@ -292,7 +300,7 @@ class GeckoLoaderCli(CommandLineParser):
 
 class GUI(object):
 
-    class Dialogs:
+    class Dialogs(Enum):
         LOAD_DEST = 0
         LOAD_GCT = 1
         LOAD_FOLDER = 2

@@ -3,6 +3,7 @@ import sys
 import os
 from io import IOBase
 from argparse import ArgumentParser
+from typing import Dict, Optional, Set, Tuple
 
 try:
     import colorama
@@ -54,6 +55,7 @@ def align_byte_size(obj, alignment: int, fillchar="00"):
     else:
         raise NotImplementedError(f"Aligning the size of class {type(obj)} is unsupported")
 
+"""
 def color_text(text: str, textToColor: list=[("", None)], defaultColor: str=None) -> str:
     currentColor = None
     formattedText = ""
@@ -92,6 +94,26 @@ def color_text(text: str, textToColor: list=[("", None)], defaultColor: str=None
         formattedText += char
 
     return formattedText + TRESET
+"""
+
+def color_text(text: str, textToColor: Optional[Dict[str, str]] = None, defaultColor: Optional[str] = "") -> str:
+    currentColor = None
+    formattedText = ""
+
+    if textToColor is None:
+        return f"{defaultColor}{text}{TRESET}"
+
+    for char in text:
+        if char in textToColor:
+            newColor = textToColor[char]
+            if currentColor != newColor:
+                formattedText += TRESET
+                formattedText += newColor
+                currentColor = newColor
+        formattedText += char
+
+    return formattedText
+
 
 class CommandLineParser(ArgumentParser):
     
