@@ -1,9 +1,7 @@
-import struct
 import sys
-import os
 from io import IOBase
 from argparse import ArgumentParser
-from typing import Dict, Optional, Set, Tuple
+from typing import Dict, Optional
 
 try:
     import colorama
@@ -116,7 +114,6 @@ def color_text(text: str, textToColor: Optional[Dict[str, str]] = None, defaultC
 
 
 class CommandLineParser(ArgumentParser):
-    
     def error(self, message: str, prefix: str=None, print_usage=True, exit=True):
         if print_usage:
             self.print_usage(sys.stderr)

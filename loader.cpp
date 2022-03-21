@@ -179,7 +179,7 @@ static void storeRange(u8 *addr, s32 size) {
 
 } // namespace Cache
 
-namespace Direct {
+namespace Instr {
 
 template <typename T> static inline void write(T *addr, T value) {
   *addr = value;
@@ -189,7 +189,7 @@ template <typename T> static inline void write(T *addr, T value) {
 /*This constructs a branch instruction. &TO = ((TO - FROM) & MAX_OFFSET) |
  * BRANCH_TYPE | !!isLink*/
 static inline void branch(void *addr, void *to, bool lk) {
-  Direct::write<u32>((u32 *)(addr), ((((u32)(to) - (u32)(addr)) & 0x3ffffff) |
+  Instr::write<u32>((u32 *)(addr), ((((u32)(to) - (u32)(addr)) & 0x3ffffff) |
                                      0x48000000 | lk));
 }
 
@@ -232,7 +232,7 @@ template <typename T> static T *single(T *start, T *end, T match) {
 of targetVal, and hooks it to the pointer hookTo*/
 static inline void hookFunction(u32 *start, u32 targetVal, void *hookTo,
                                 bool lk) {
-  Direct::branch(Search::single<u32>(start, start + 0x500, targetVal), hookTo,
+  Instr::branch(Search::single<u32>(start, start + 0x500, targetVal), hookTo,
                  lk);
 }
 
@@ -322,7 +322,7 @@ static void initMods() {
   auto ppc = *gpModInfo.codehandlerHook;
 
   /*Write hook branch*/
-  Memory::Direct::branch((void *)gpModInfo.codehandlerHook,
+  Memory::Instr::branch((void *)gpModInfo.codehandlerHook,
                          (void *)((u32)sDisc.sMetaData.mOSArenaHi + 0xA8),
                          false); // entryhook
 
@@ -338,13 +338,13 @@ static void initMods() {
 
   /*Write original instruction or translate offset data if a branch*/
   if (((ppc >> 24) & 0xFF) > 0x47 && ((ppc >> 24) & 0xFF) < 0x4C) {
-    Memory::Direct::branch((void *)fillInField, (void *)returnAddress, ppc & 1);
+    Memory::Instr::branch((void *)fillInField, (void *)returnAddress, ppc & 1);
   } else {
-    Memory::Direct::write(fillInField, ppc);
+    Memory::Instr::write(fillInField, ppc);
   }
 
   /*Write branch back to the hook address + 4*/
-  Memory::Direct::branch((void *)&fillInField[1],
+  Memory::Instr::branch((void *)&fillInField[1],
                          (void *)(&gpModInfo.codehandlerHook[1]),
                          false); // return
 }

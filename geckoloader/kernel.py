@@ -35,9 +35,19 @@ def timer(func):
     return wrapper
 
 
-class CodeHandler(object):
+def create_branch(to: int, _from: int, lk: bool = False) -> int:
+    """ Create a branch instruction at `_from`\n
+        to:    address to branch to\n
+        _from: address to branch from\n
+        lk:    is branch linking? """
 
-    class Types:
+    _from &= 0xFFFFFFFC
+    to &= 0xFFFFFFFC
+    return (to - _from) & 0x3FFFFFD | 0x48000000 | (1 if lk else 0)
+
+
+class CodeHandler(object):
+    class Types(Enum):
         MINI = "MINI"
         FULL = "FULL"
 
@@ -48,13 +58,12 @@ class CodeHandler(object):
     WiiPADHook = b"\x3A\xB5\x00\x01\x3A\x73\x00\x0C\x2C\x15\x00\x04\x3B\x18\x00\x0C"
     GCNPADHook = b"\x3A\xB5\x00\x01\x2C\x15\x00\x04\x3B\x18\x00\x0C\x3B\xFF\x00\x0C"
 
-    def __init__(self, f):
+    def __init__(self, f: BinaryIO):
         self.baseAddress = int.from_bytes(f.read(4), "big", signed=False)
-        self.
         self._rawData = BytesIO(f.read())
-        self.gct = GeckoCodeTable()
+        self.gct: GeckoCodeTable = None
 
-        """Get codelist pointer"""
+        # Get codelist pointer
         self._rawData.seek(0xFA)
         codelistUpper = self._rawData.read(2).hex()
         self._rawData.seek(0xFE)
@@ -69,91 +78,81 @@ class CodeHandler(object):
         self.includeAll = False
         self.optimizeList = False
 
-        if self.handlerLength < 0x900:
-            self.type = KernelLoader.HandlerType.MINI
-        else:
-            self.type = KernelLoader.HandlerType.FULL
+        self.type = KernelLoader.HandlerType.MINI if self.handlerLength < 0x900 else KernelLoader.HandlerType.FULL
 
         f.seek(0)
 
-    def init_gct(self, gctPath: Path, tmpdir: Path = None):
-        if tmpdir is not None:
-            _tmpGct = tmpdir / "gct.bin"
-        else:
-            _tmpGct = Path("gct.bin")
-
+    def init_gct(self, gctPath: Path):
         if gctPath.suffix.lower() == ".txt":
-            with _tmpGct.open("wb+") as temp:
-                temp.write(bytes.fromhex("00D0C0DE"*2 +
-                                         self.parse_input(gctPath) + "F000000000000000"))
-                temp.seek(0)
-                self.gct = GCT(temp)
+            self.gct = GeckoCodeTable.from_text(gctPath.read_text())
         elif gctPath.suffix.lower() == ".gct":
-            with gctPath.open("rb") as gct:
-                self.gct = GCT(gct)
+            self.gct = GeckoCodeTable.from_bytes(gctPath.read_bytes())
         elif gctPath.suffix == "":
-            with _tmpGct.open("wb+") as temp:
-                temp.write(b"\x00\xD0\xC0\xDE"*2)
+            gct = GeckoCodeTable()
+            for file in gctPath.iterdir():
+                if not file.is_file():
+                    continue
 
-                for file in gctPath.iterdir():
-                    if file.is_file():
-                        if file.suffix.lower() == ".txt":
-                            temp.write(bytes.fromhex(self.parse_input(file)))
-                        elif file.suffix.lower() == ".gct":
-                            with file.open("rb") as gct:
-                                temp.write(gct.read()[8:-8])
-                        else:
-                            print(tools.color_text(
-                                f"  :: HINT: {file} is not a .txt or .gct file", defaultColor=tools.TYELLOWLIT))
-
-                temp.write(b"\xF0\x00\x00\x00\x00\x00\x00\x00")
-                temp.seek(0)
-                self.gct = GCT(temp)
+                if file.suffix.lower() == ".txt":
+                    nextGCT = GeckoCodeTable.from_text(gctPath.read_text())
+                    if gct.gameID == "GECK01":
+                        gct.gameID = nextGCT.gameID
+                        gct.gameName = nextGCT.gameName
+                    gct += nextGCT
+                elif file.suffix.lower() == ".gct":
+                    nextGCT = GeckoCodeTable.from_bytes(gctPath.read_bytes())
+                    gct += nextGCT
+                else:
+                    print(tools.color_text(
+                        f"  :: HINT: {file} is not a .txt or .gct file", defaultColor=tools.TYELLOWLIT))
+            self.gct = gct
         else:
             raise NotImplementedError(
                 f"Parsing file type `{gctPath.suffix}' as a GCT is unsupported")
 
-    def parse_input(self, geckoText: Path) -> str:
-        with geckoText.open("rb") as gecko:
-            result = chardet.detect(gecko.read())
-            encodeType = result["encoding"]
+    def set_variables(self, dol: DolFile):
+        varOffset = self.__find_variable_data(b"\x00\xDE\xDE\xDE")
+        if varOffset is None:
+            raise RuntimeError(tools.color_text(
+                "Variable codehandler data not found\n", defaultColor=tools.TREDLIT))
 
-        with geckoText.open("r", encoding=encodeType) as gecko:
-            gct = ""
-            state = None
+        self.__set_hook_instruction(dol, self.hookAddress, varOffset, 0)
 
-            for line in gecko.readlines():
-                if line in ("", "\n"):
-                    continue
+        self._rawData.seek(varOffset + 4)
+        write_uint32(self._rawData, create_branch(self.hookAddress + 4,
+                                                  self.baseAddress + (varOffset + 4), False))
 
-                if state is None:
-                    if line.startswith("$") or line.startswith("["):
-                        state = "Dolphin"
-                    else:
-                        state = "OcarinaM"
+    def __find_variable_data(self, variable) -> int:
+        self._rawData.seek(0)
 
-                try:
-                    if state == "OcarinaM":
-                        if self.includeAll:
-                            geckoLine = re.findall(
-                                r"[A-F0-9]{8}[\t\f ][A-F0-9]{8}", line, re.IGNORECASE)[0]
-                        else:
-                            geckoLine = re.findall(
-                                r"(?:\*\s*)([A-F0-9]{8}[\t\f ][A-F0-9]{8})", line, re.IGNORECASE)[0]
-                    else:
-                        geckoLine = re.findall(
-                            r"(?<![$\*])[A-F0-9]{8}[\t\f ][A-F0-9]{8}", line, re.IGNORECASE)[0]
-                except IndexError:
-                    continue
+        while sample := self._rawData.read(4):
+            if sample == variable:
+                return self._rawData.tell() - 4
 
-                gct += geckoLine.replace(" ", "").strip()
+        return None
 
-        return gct
+    def __set_hook_instruction(self, dol: DolFile, hookAddress: int, returnOffset: int, lk: bool = False):
+        self._rawData.seek(returnOffset)
+        dol.seek(hookAddress)
+        ppc = read_uint32(dol)
+
+        if ((((ppc >> 24) & 0xFF) > 0x47 and ((ppc >> 24) & 0xFF) < 0x4C) or (((ppc >> 24) & 0xFF) > 0x3F and ((ppc >> 24) & 0xFF) < 0x44)):
+            to, conditional = dol.extract_branch_addr(hookAddress)
+            if conditional:
+                raise NotImplementedError(
+                    "Hooking to a conditional non spr branch is unsupported")
+            dol.insert_branch
+            write_uint32(
+                self._rawData,
+                create_branch(to, self.baseAddress + returnOffset, lk)
+            )
+        else:
+            write_uint32(self._rawData, ppc)
 
 
 class KernelLoader(object):
     class DataCryptor(object):
-        @staticmethod
+        @ staticmethod
         def encrypt_key(key: int) -> int:
             b1 = key & 0xFF
             b2 = (key >> 8) & 0xFF
@@ -164,7 +163,7 @@ class KernelLoader(object):
             b1 ^= b2
             return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
 
-        @staticmethod
+        @ staticmethod
         def decrypt_key(key: int) -> int:
             b1 = (key >> 24) & 0xFF
             b2 = (key >> 16) & 0xFF
@@ -175,41 +174,25 @@ class KernelLoader(object):
             b3 ^= b4
             return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1
 
-        @staticmethod
-        def encrypt_data(data: bytes, key: int) -> bytes:
-            stream = BytesIO(data)
-            i = 0
-            try:
-                while packet := read_uint32(stream):
-                    packet = read_uint32(stream)
-                    stream.seek(-4, 1)
-                    write_uint32(stream, (packet ^ key) & 0xFFFFFFFF)
-                    key += (i << 3) & 0xFFFFFFFF
-                    if key > 0xFFFFFFFF:
-                        key -= 0x100000000
-                    i += 1
-            except Exception:
-                pass
-            return stream.getvalue()
-
         def __init__(self, key: int):
             self.key = key
 
-        @property
+        @ property
         def encryptedKey(self) -> int:
             return self.encrypt_key(self.key)
 
-        def encrypt_data(self, data: bytes) -> bytes:
+        def xorcrypt_data(self, data: bytes) -> bytes:
             stream = BytesIO(data)
+            streamLength = len(stream.getbuffer())
             i = 0
             try:
-                while packet := read_uint32(stream):
+                while (stream.tell() < streamLength):
                     packet = read_uint32(stream)
                     stream.seek(-4, 1)
-                    write_uint32(stream, (packet ^ key) & 0xFFFFFFFF)
-                    key += (i << 3) & 0xFFFFFFFF
-                    if key > 0xFFFFFFFF:
-                        key -= 0x100000000
+                    write_uint32(stream, (packet ^ self.key) & 0xFFFFFFFF)
+                    self.key += (i << 3) & 0xFFFFFFFF
+                    if self.key > 0xFFFFFFFF:
+                        self.key -= 0x100000000
                     i += 1
             except Exception:
                 pass
@@ -247,99 +230,6 @@ class KernelLoader(object):
         "
     )
 
-    @staticmethod
-    def encrypt_key(key: int) -> int:
-        b1 = key & 0xFF
-        b2 = (key >> 8) & 0xFF
-        b3 = (key >> 16) & 0xFF
-        b4 = (key >> 24) & 0xFF
-        b3 ^= b4
-        b2 ^= b3
-        b1 ^= b2
-        return (b1 << 24) | (b2 << 16) | (b3 << 8) | b4
-
-    @staticmethod
-    def decrypt_key(key: int) -> int:
-        b1 = (key >> 24) & 0xFF
-        b2 = (key >> 16) & 0xFF
-        b3 = (key >> 8) & 0xFF
-        b4 = key & 0xFF
-        b1 ^= b2
-        b2 ^= b3
-        b3 ^= b4
-        return (b4 << 24) | (b3 << 16) | (b2 << 8) | b1
-
-    @staticmethod
-    def encrypt_gct(gct: GeckoCodeTable, key: int) -> bytes:
-        with BytesIO(gct.as_bytes()) as data:
-            i = 0
-            try:
-                while packet := read_uint32(data):
-                    packet = read_uint32(data)
-                    data.seek(-4, 1)
-                    write_uint32(data, (packet ^ key) & 0xFFFFFFFF)
-                    key += (i << 3) & 0xFFFFFFFF
-                    if key > 0xFFFFFFFF:
-                        key -= 0x100000000
-                    i += 1
-            except Exception:
-                pass
-
-    @staticmethod
-    def decrypt_gct(gct: GeckoCodeTable, key: int) -> bytes:
-        with BytesIO(gct.as_bytes()) as data:
-            i = 0
-            try:
-                while packet := read_uint32(data):
-                    packet = read_uint32(data)
-                    data.seek(-4, 1)
-                    write_uint32(data, (packet ^ key) & 0xFFFFFFFF)
-                    key += (i << 3) & 0xFFFFFFFF
-                    if key > 0xFFFFFFFF:
-                        key -= 0x100000000
-                    i += 1
-            except Exception:
-                pass
-
-    @staticmethod
-    def find_variable_data(self, variable) -> int:
-        self._rawData.seek(0)
-
-        while sample := self._rawData.read(4):
-            if sample == variable:
-                return self._rawData.tell() - 4
-
-        return None
-
-    @staticmethod
-    def set_hook_instruction(self, dol: DolFile, address: int, varOffset: int, lk=0):
-        self._rawData.seek(varOffset)
-        dol.seek(address)
-        ppc = read_uint32(dol)
-
-        if ((((ppc >> 24) & 0xFF) > 0x47 and ((ppc >> 24) & 0xFF) < 0x4C) or (((ppc >> 24) & 0xFF) > 0x3F and ((ppc >> 24) & 0xFF) < 0x44)):
-            to, conditional = dol.extract_branch_addr(address)
-            if conditional:
-                raise NotImplementedError(
-                    "Hooking to a conditional non spr branch is unsupported")
-            write_uint32(self._rawData, (to - (self.initAddress +
-                                               varOffset)) & 0x3FFFFFD | 0x48000000 | lk)
-        else:
-            write_uint32(self._rawData, ppc)
-
-    @staticmethod
-    def set_variables(self, dol: DolFile):
-        varOffset = self.find_variable_data(b"\x00\xDE\xDE\xDE")
-        if varOffset is None:
-            raise RuntimeError(tools.color_text(
-                "Variable codehandler data not found\n", defaultColor=tools.TREDLIT))
-
-        self.set_hook_instruction(dol, self.hookAddress, varOffset, 0)
-
-        self._rawData.seek(varOffset + 4)
-        write_uint32(self._rawData, ((self.hookAddress + 4) -
-                                     (self.initAddress + (varOffset + 4))) & 0x3FFFFFD | 0x48000000 | 0)
-
     def __init__(self, f: BinaryIO, hookType: CodeHandler.Hook, hookAddress: int, initAddress: int,
                  allocation: Optional[int] = None, includeAllCodes: bool = False, optimizeCodes: bool = False,
                  protectGame: bool = False, encryptCodes: bool = False, cli: Optional[tools.CommandLineParser] = None):
@@ -362,11 +252,11 @@ class KernelLoader(object):
         self._verbosity = 0
         self._quiet = False
 
-    @property
+    @ property
     def verbosity(self) -> int:
         return self._verbosity
 
-    @verbosity.setter
+    @ verbosity.setter
     def verbosity(self, level: int):
         self._verbosity = max(min(level, 0), 3)
 
@@ -404,7 +294,7 @@ class KernelLoader(object):
         self.apply_reloc(b"GH", ((encryptKeyAddress >> 16) & 0xFFFF))
         self.apply_reloc(b"GL", (encryptKeyAddress & 0xFFFF) + baseOffset)
 
-    def complete_data(self, codeHandler: CodeHandler, hookAddress: int, initAddress: int):
+    def complete_data(self, codeHandler: CodeHandler, initAddress: int):
         _upperAddr, _lowerAddr = (
             (self.initAddress >> 16) & 0xFFFF, self.initAddress & 0xFFFF)
         _key = random.randrange(0x100000000)
@@ -416,7 +306,7 @@ class KernelLoader(object):
         self.apply_reloc(b"CSIZ", len(codeHandler.gct))
         self.apply_reloc(b"HOOK", self.hookAddress)
         self.apply_reloc(b"CRPT", int(self.encrypt))
-        self.apply_reloc(b"CYPT", KernelLoader.encrypt_key(_key))
+        self.apply_reloc(b"CYPT", KernelLoader.DataCryptor.encrypt_key(_key))
 
         gpModInfoOffset = (self._rawData.getvalue().find(b"HEAP") << 16)
         gpModUpperAddr = _upperAddr + \
@@ -481,7 +371,7 @@ class KernelLoader(object):
     def protect_game(self, codeHandler: CodeHandler):
         codeHandler.gct.add_child(KernelLoader.GeckoProtector)
 
-    @timer
+    @ timer
     def build(self, gctPath: Path, dol: DolFile, codeHandler: CodeHandler, tmpdir: Path, dump: Path):
         _oldStart = dol.entryPoint
 
