@@ -200,9 +200,9 @@ class GeckoLoaderCli(CommandLineParser):
         if args.dest:
             dest = Path(args.dest).resolve()
             if dest.suffix == "":
-                dest = dest / args.dolfile.name
+                dest = dest / dolFile.name
         else:
-            dest = Path.cwd() / "geckoloader-build" / args.dolfile.name
+            dest = Path.cwd() / "geckoloader-build" / dolFile.name
 
         if args.alloc:
             try:
