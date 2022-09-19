@@ -589,7 +589,7 @@ class KernelLoader(object):
                     f"  :: Codehandler hooked at 0x{codeHandler.hookAddress:X}",
                     f"  :: Codehandler is of type `{codeHandler.type}'",
                     f"  :: Of the {DolFile.maxTextSections} text sections in this DOL file, {len(dolFile.textSections)} are now being used",
-                    f"  :: Of the {DolFile.maxDataSections} text sections in this DOL file, {len(dolFile.dataSections)} are now being used"]
+                    f"  :: Of the {DolFile.maxDataSections} data sections in this DOL file, {len(dolFile.dataSections)} are now being used"]
 
             for bit in info:
                 print(tools.color_text(bit, defaultColor=tools.TGREENLIT))
