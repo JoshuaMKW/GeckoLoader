@@ -13,7 +13,7 @@ def resource_path(relPath: str = "") -> Path:
     import sys
 
     if hasattr(sys, "_MEIPASS"):
-        return getattr(sys, "_MEIPASS", Path(__file__).parent) / relPath
+        return Path(getattr(sys, "_MEIPASS", Path(__file__).parent)) / relPath
     else:
         if getattr(sys, "frozen", False):
             # The application is frozen
