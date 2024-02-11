@@ -93,17 +93,6 @@ class GeckoLoaderCli(CommandLineParser):
             metavar="TYPE",
         )
         self.add_argument(
-            "--handler",
-            help="""["MINI", "FULL"] Which codehandler gets used. "MINI" uses a smaller codehandler
-                        which only supports (0x, 2x, Cx, and E0 types) and supports up to
-                        600 lines of gecko codes when using the legacy codespace.
-                        "FULL" is the standard codehandler, supporting up to 350 lines of code
-                        in the legacy codespace. "FULL" is the default""",
-            default="FULL",
-            choices=["MINI", "FULL"],
-            metavar="TYPE",
-        )
-        self.add_argument(
             "--handerpath",
             help="Define the path to the codehandler file, overrides the default",
             metavar="PATH",
@@ -291,17 +280,8 @@ class GeckoLoaderCli(CommandLineParser):
 
         if args.handlerpath:
             codeHandlerFile = Path(args.handlerpath).resolve()
-        elif args.handler == CodeHandler.Types.MINI:
-            codeHandlerFile = Path("bin/codehandler-mini.bin")
-        elif args.handler == CodeHandler.Types.FULL:
-            codeHandlerFile = Path("bin/codehandler.bin")
         else:
-            self.error(
-                color_text(
-                    f"Codehandler type {args.handler} is invalid\n",
-                    defaultColor=TREDLIT,
-                )
-            )
+            codeHandlerFile = Path("bin/codehandler.bin")
 
         if not dolFile.is_file():
             self.error(
