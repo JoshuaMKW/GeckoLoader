@@ -3,6 +3,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from children_ui import PrefWindow
 from fileutils import resource_path
 
+
 class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, version: str):
         super().__init__()
@@ -56,10 +57,14 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setWeight(42)
         self.setFont(font)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(str(resource_path("bin/icon.ico"))), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(
+            QtGui.QPixmap(str(resource_path("bin/icon.ico"))),
+            QtGui.QIcon.Normal,
+            QtGui.QIcon.Off,
+        )
         self.setWindowIcon(icon)
 
-        #Top level widget
+        # Top level widget
         self.centerWidget = QtWidgets.QWidget(self)
         self.centerWidget.setObjectName("centerWidget")
 
@@ -67,7 +72,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gridLayout.setVerticalSpacing(0)
         self.gridLayout.setObjectName("gridLayout")
 
-        #Layout for file paths and open boxes
+        # Layout for file paths and open boxes
         self.filesLayout = QtWidgets.QGridLayout()
         self.filesLayout.setHorizontalSpacing(0)
         self.filesLayout.setObjectName("filesLayout")
@@ -76,7 +81,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dolLayout.setHorizontalSpacing(0)
         self.dolLayout.setObjectName("dolLayout")
 
-        #Layout for folder path
+        # Layout for folder path
         self.gctLayout = QtWidgets.QGridLayout()
         self.gctLayout.setHorizontalSpacing(0)
         self.gctLayout.setVerticalSpacing(5)
@@ -86,10 +91,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dolLayout.setHorizontalSpacing(0)
         self.dolLayout.setObjectName("dolLayout")
 
-        #Files label
+        # Files label
         self.filesLabel = QtWidgets.QLabel(self.centerWidget)
         self.filesLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.filesLabel.sizePolicy().hasHeightForWidth())
@@ -102,10 +109,10 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setBold(True)
         self.filesLabel.setFont(font)
         self.filesLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.filesLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.filesLabel.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.filesLabel.setObjectName("filesLabel")
 
-        #Dol button to open file
+        # Dol button to open file
         self.dolButton = QtWidgets.QPushButton(self.centerWidget)
         self.dolButton.setMinimumSize(QtCore.QSize(100, 26))
         self.dolButton.setMaximumSize(QtCore.QSize(100, 26))
@@ -120,7 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dolButton.setObjectName("dolButton")
         self.dolLayout.addWidget(self.dolButton, 1, 0, 1, 1)
 
-        #Dol path textbox
+        # Dol path textbox
         self.dolTextBox = QtWidgets.QLineEdit(self.centerWidget)
         self.dolTextBox.setEnabled(False)
         self.dolTextBox.setMinimumSize(QtCore.QSize(200, 24))
@@ -133,11 +140,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dolTextBox.setText("")
         self.dolTextBox.setMaxLength(255)
         self.dolTextBox.setFrame(True)
-        self.dolTextBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.dolTextBox.setAlignment(
+            QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.dolTextBox.setObjectName("dolTextBox")
         self.dolLayout.addWidget(self.dolTextBox, 1, 1, 1, 1)
 
-        #horizontal separater codes
+        # horizontal separater codes
         self.horiSepFiles = QtWidgets.QFrame(self.centerWidget)
         self.horiSepFiles.setMinimumSize(QtCore.QSize(474, 30))
         self.horiSepFiles.setContentsMargins(20, 0, 20, 0)
@@ -145,7 +154,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.horiSepFiles.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.horiSepFiles.setObjectName("horiSepFiles")
 
-        #gctFile button to open file
+        # gctFile button to open file
         self.gctFileButton = QtWidgets.QPushButton(self.centerWidget)
         self.gctFileButton.setMinimumSize(QtCore.QSize(100, 26))
         self.gctFileButton.setMaximumSize(QtCore.QSize(100, 26))
@@ -160,7 +169,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gctFileButton.setObjectName("gctFileButton")
         self.gctLayout.addWidget(self.gctFileButton, 0, 0, 1, 1)
 
-        #gctFile path textbox
+        # gctFile path textbox
         self.gctFileTextBox = QtWidgets.QLineEdit(self.centerWidget)
         self.gctFileTextBox.setEnabled(False)
         self.gctFileTextBox.setMinimumSize(QtCore.QSize(200, 24))
@@ -173,11 +182,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gctFileTextBox.setText("")
         self.gctFileTextBox.setMaxLength(255)
         self.gctFileTextBox.setFrame(True)
-        self.gctFileTextBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.gctFileTextBox.setAlignment(
+            QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.gctFileTextBox.setObjectName("gctFileTextBox")
         self.gctLayout.addWidget(self.gctFileTextBox, 0, 1, 1, 1)
 
-        #--or-- Label
+        # --or-- Label
         self.orFolderLabel = QtWidgets.QLabel(self.centerWidget)
         self.orFolderLabel.setEnabled(False)
         self.orFolderLabel.setMinimumSize(QtCore.QSize(80, 8))
@@ -188,11 +199,11 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setBold(True)
         self.orFolderLabel.setFont(font)
         self.orFolderLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.orFolderLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.orFolderLabel.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.orFolderLabel.setObjectName("orFolderLabel")
         self.gctLayout.addWidget(self.orFolderLabel, 1, 0, 1, 2)
 
-        #gctFolder button to open file
+        # gctFolder button to open file
         self.gctFolderButton = QtWidgets.QPushButton(self.centerWidget)
         self.gctFolderButton.setMinimumSize(QtCore.QSize(100, 26))
         self.gctFolderButton.setMaximumSize(QtCore.QSize(100, 26))
@@ -207,7 +218,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gctFolderButton.setObjectName("gctFolderButton")
         self.gctLayout.addWidget(self.gctFolderButton, 2, 0, 1, 1)
 
-        #gctFolder path textbox
+        # gctFolder path textbox
         self.gctFolderTextBox = QtWidgets.QLineEdit(self.centerWidget)
         self.gctFolderTextBox.setEnabled(False)
         self.gctFolderTextBox.setMinimumSize(QtCore.QSize(200, 24))
@@ -220,11 +231,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.gctFolderTextBox.setText("")
         self.gctFolderTextBox.setMaxLength(255)
         self.gctFolderTextBox.setFrame(True)
-        self.gctFolderTextBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.gctFolderTextBox.setAlignment(
+            QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.gctFolderTextBox.setObjectName("gctFolderTextBox")
         self.gctLayout.addWidget(self.gctFolderTextBox, 2, 1, 1, 1)
 
-        #horizontal separater dest
+        # horizontal separater dest
         self.horiSepDest = QtWidgets.QFrame(self.centerWidget)
         self.horiSepDest.setMinimumSize(QtCore.QSize(474, 30))
         self.horiSepDest.setContentsMargins(20, 0, 20, 0)
@@ -232,7 +245,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.horiSepDest.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.horiSepDest.setObjectName("horiSepDest")
 
-        #Dest button to open file
+        # Dest button to open file
         self.destButton = QtWidgets.QPushButton(self.centerWidget)
         self.destButton.setMinimumSize(QtCore.QSize(100, 26))
         self.destButton.setMaximumSize(QtCore.QSize(100, 26))
@@ -247,7 +260,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.destButton.setObjectName("destButton")
         self.destLayout.addWidget(self.destButton, 0, 0, 1, 1)
 
-        #Dest path textbox
+        # Dest path textbox
         self.destTextBox = QtWidgets.QLineEdit(self.centerWidget)
         self.destTextBox.setEnabled(False)
         self.destTextBox.setMinimumSize(QtCore.QSize(200, 24))
@@ -260,7 +273,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.destTextBox.setText("")
         self.destTextBox.setMaxLength(255)
         self.destTextBox.setFrame(True)
-        self.destTextBox.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.destTextBox.setAlignment(
+            QtCore.Qt.AlignLeading | QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.destTextBox.setObjectName("destTextBox")
         self.destLayout.addWidget(self.destTextBox, 0, 1, 1, 1)
 
@@ -270,20 +285,22 @@ class MainWindow(QtWidgets.QMainWindow):
         self.filesLayout.addWidget(self.horiSepDest, 3, 0, 1, 1)
         self.filesLayout.addLayout(self.destLayout, 4, 0, 1, 1)
 
-        #Options Layout
+        # Options Layout
         self.optionsLayout = QtWidgets.QGridLayout()
         self.optionsLayout.setHorizontalSpacing(20)
         self.optionsLayout.setObjectName("optionsLayout")
 
-        #Options Label
+        # Options Label
         self.optionsLabel = QtWidgets.QLabel(self.centerWidget)
         self.optionsLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.optionsLabel.sizePolicy().hasHeightForWidth())
         self.optionsLabel.setSizePolicy(sizePolicy)
-        self.optionsLabel.setMinimumSize(QtCore.QSize(79, 23))
+        self.optionsLabel.setMinimumSize(QtCore.QSize(176, 23))
         self.optionsLabel.setMaximumSize(QtCore.QSize(16777215, 23))
         font = QtGui.QFont("Helvetica")
         font.setPointSize(18)
@@ -291,35 +308,41 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setBold(True)
         self.optionsLabel.setFont(font)
         self.optionsLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.optionsLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.optionsLabel.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.optionsLabel.setObjectName("optionsLabel")
         self.optionsLayout.addWidget(self.optionsLabel, 0, 0, 1, 4)
 
-        #Allocation Label
+        # Allocation Label
         self.allocLabel = QtWidgets.QLabel(self.centerWidget)
         self.allocLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.allocLabel.sizePolicy().hasHeightForWidth())
         self.allocLabel.setSizePolicy(sizePolicy)
-        self.allocLabel.setMinimumSize(QtCore.QSize(79, 23))
+        self.allocLabel.setMinimumSize(QtCore.QSize(176, 23))
         self.allocLabel.setMaximumSize(QtCore.QSize(16777215, 23))
         self.allocLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.allocLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.allocLabel.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.allocLabel.setObjectName("allocLabel")
         self.optionsLayout.addWidget(self.allocLabel, 1, 0, 1, 1)
 
-        #Allocation Textbox
+        # Allocation Textbox
         self.allocLineEdit = QtWidgets.QLineEdit(self.centerWidget)
         self.allocLineEdit.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.allocLineEdit.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.allocLineEdit.sizePolicy().hasHeightForWidth()
+        )
         self.allocLineEdit.setSizePolicy(sizePolicy)
-        self.allocLineEdit.setMinimumSize(QtCore.QSize(79, 23))
-        self.allocLineEdit.setMaximumSize(QtCore.QSize(79, 23))
+        self.allocLineEdit.setMinimumSize(QtCore.QSize(176, 23))
+        self.allocLineEdit.setMaximumSize(QtCore.QSize(176, 23))
         font = QtGui.QFont()
         font.setFamily("Consolas")
         font.setPointSize(12)
@@ -327,95 +350,81 @@ class MainWindow(QtWidgets.QMainWindow):
         self.allocLineEdit.setFont(font)
         self.allocLineEdit.setText("")
         self.allocLineEdit.setMaxLength(6)
-        self.allocLineEdit.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.allocLineEdit.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.allocLineEdit.setObjectName("allocLineEdit")
         self.optionsLayout.addWidget(self.allocLineEdit, 2, 0, 1, 1)
 
-        #handlerType label
-        self.handlerTypeLabel = QtWidgets.QLabel(self.centerWidget)
-        self.handlerTypeLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.handlerTypeLabel.sizePolicy().hasHeightForWidth())
-        self.handlerTypeLabel.setSizePolicy(sizePolicy)
-        self.handlerTypeLabel.setMinimumSize(QtCore.QSize(79, 23))
-        self.handlerTypeLabel.setMaximumSize(QtCore.QSize(16777215, 23))
-        self.handlerTypeLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.handlerTypeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
-        self.handlerTypeLabel.setObjectName("handlerTypeLabel")
-        self.optionsLayout.addWidget(self.handlerTypeLabel, 1, 1, 1, 1)
-
-        #handlerType selection
-        self.handlerTypeSelect = QtWidgets.QComboBox(self.centerWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.allocLabel.sizePolicy().hasHeightForWidth())
-        self.handlerTypeSelect.setSizePolicy(sizePolicy)
-        self.handlerTypeSelect.setMinimumSize(QtCore.QSize(79, 23))
-        self.handlerTypeSelect.setMaximumSize(QtCore.QSize(79, 23))
-        self.handlerTypeSelect.setObjectName("handlerTypeSelect")
-        self.handlerTypeSelect.addItems(["FULL", "MINI"])
-        self.optionsLayout.addWidget(self.handlerTypeSelect, 2, 1, 1, 1)
-
-        #hookType label
+        # hookType label
         self.hookTypeLabel = QtWidgets.QLabel(self.centerWidget)
         self.hookTypeLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.hookTypeLabel.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.hookTypeLabel.sizePolicy().hasHeightForWidth()
+        )
         self.hookTypeLabel.setSizePolicy(sizePolicy)
-        self.hookTypeLabel.setMinimumSize(QtCore.QSize(79, 23))
+        self.hookTypeLabel.setMinimumSize(QtCore.QSize(176, 23))
         self.hookTypeLabel.setMaximumSize(QtCore.QSize(16777215, 23))
         self.hookTypeLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.hookTypeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.hookTypeLabel.setAlignment(QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
         self.hookTypeLabel.setObjectName("hookTypeLabel")
-        self.optionsLayout.addWidget(self.hookTypeLabel, 1, 2, 1, 1)
+        self.optionsLayout.addWidget(self.hookTypeLabel, 1, 1, 1, 1)
 
-        #hookType selection
+        # hookType selection
         self.hookTypeSelect = QtWidgets.QComboBox(self.centerWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.allocLabel.sizePolicy().hasHeightForWidth())
         self.hookTypeSelect.setSizePolicy(sizePolicy)
-        self.hookTypeSelect.setMinimumSize(QtCore.QSize(79, 23))
-        self.hookTypeSelect.setMaximumSize(QtCore.QSize(79, 23))
+        self.hookTypeSelect.setMinimumSize(QtCore.QSize(176, 23))
+        self.hookTypeSelect.setMaximumSize(QtCore.QSize(176, 23))
         self.hookTypeSelect.setObjectName("hookTypeSelect")
         self.hookTypeSelect.addItems(["VI", "GX", "PAD"])
-        self.optionsLayout.addWidget(self.hookTypeSelect, 2, 2, 1, 1)
+        self.optionsLayout.addWidget(self.hookTypeSelect, 2, 1, 1, 1)
 
-        #txtCodesInclude label
+        # txtCodesInclude label
         self.txtCodesIncludeLabel = QtWidgets.QLabel(self.centerWidget)
         self.txtCodesIncludeLabel.setEnabled(False)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.txtCodesIncludeLabel.sizePolicy().hasHeightForWidth())
+        sizePolicy.setHeightForWidth(
+            self.txtCodesIncludeLabel.sizePolicy().hasHeightForWidth()
+        )
         self.txtCodesIncludeLabel.setSizePolicy(sizePolicy)
-        self.txtCodesIncludeLabel.setMinimumSize(QtCore.QSize(79, 23))
+        self.txtCodesIncludeLabel.setMinimumSize(QtCore.QSize(176, 23))
         self.txtCodesIncludeLabel.setMaximumSize(QtCore.QSize(16777215, 23))
         self.txtCodesIncludeLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.txtCodesIncludeLabel.setAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+        self.txtCodesIncludeLabel.setAlignment(
+            QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter
+        )
         self.txtCodesIncludeLabel.setObjectName("txtCodesIncludeLabel")
-        self.optionsLayout.addWidget(self.txtCodesIncludeLabel, 1, 3, 1, 1)
+        self.optionsLayout.addWidget(self.txtCodesIncludeLabel, 1, 2, 1, 1)
 
-        #txtCodesInclude selection
+        # txtCodesInclude selection
         self.txtCodesIncludeSelect = QtWidgets.QComboBox(self.centerWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.allocLabel.sizePolicy().hasHeightForWidth())
         self.txtCodesIncludeSelect.setSizePolicy(sizePolicy)
-        self.txtCodesIncludeSelect.setMinimumSize(QtCore.QSize(79, 23))
-        self.txtCodesIncludeSelect.setMaximumSize(QtCore.QSize(79, 23))
+        self.txtCodesIncludeSelect.setMinimumSize(QtCore.QSize(176, 23))
+        self.txtCodesIncludeSelect.setMaximumSize(QtCore.QSize(176, 23))
         self.txtCodesIncludeSelect.setObjectName("txtCodesIncludeSelect")
         self.txtCodesIncludeSelect.addItems(["ACTIVE", "ALL"])
-        self.optionsLayout.addWidget(self.txtCodesIncludeSelect, 2, 3, 1, 1)
+        self.optionsLayout.addWidget(self.txtCodesIncludeSelect, 2, 2, 1, 1)
 
-        #horizontal separater options
+        # horizontal separater options
         self.horiSepOptions = QtWidgets.QFrame(self.centerWidget)
         self.horiSepOptions.setMinimumSize(QtCore.QSize(300, 30))
         self.horiSepOptions.setContentsMargins(20, 0, 20, 0)
@@ -424,7 +433,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.horiSepOptions.setObjectName("horiSepOptions")
         self.optionsLayout.addWidget(self.horiSepOptions, 3, 0, 1, 4)
 
-        #Advanced options button
+        # Advanced options button
         self.exOptionsButton = QtWidgets.QPushButton(self.centerWidget)
         font = QtGui.QFont("Helvetica")
         font.setPointSize(13)
@@ -438,24 +447,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.exOptionsButton.setObjectName("exOptionsButton")
         self.optionsLayout.addWidget(self.exOptionsButton, 4, 0, 1, 4)
 
-        #horizontal separater 1
+        # horizontal separater 1
         self.horiSepA = QtWidgets.QFrame(self.centerWidget)
         self.horiSepA.setMinimumSize(QtCore.QSize(470, 30))
         self.horiSepA.setFrameShape(QtWidgets.QFrame.HLine)
         self.horiSepA.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.horiSepA.setObjectName("horiSepA")
-        
-        #horizontal separater 2
+
+        # horizontal separater 2
         self.horiSepB = QtWidgets.QFrame(self.centerWidget)
         self.horiSepB.setMinimumSize(QtCore.QSize(470, 30))
         self.horiSepB.setFrameShape(QtWidgets.QFrame.HLine)
         self.horiSepB.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.horiSepB.setObjectName("horiSepB")
 
-        #response panel
+        # response panel
         self.responses = QtWidgets.QPlainTextEdit(self.centerWidget)
         self.responses.setEnabled(True)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy = QtWidgets.QSizePolicy(
+            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed
+        )
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.responses.sizePolicy().hasHeightForWidth())
@@ -467,14 +478,14 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setPointSize(8)
         font.setWeight(42)
         fontMetrics = QtGui.QFontMetricsF(font)
-        spaceWidth = fontMetrics.width(' ')
+        spaceWidth = fontMetrics.width(" ")
         self.responses.setFont(font)
         self.responses.setPlainText("")
         self.responses.setTabStopDistance(spaceWidth * 4)
         self.responses.setReadOnly(True)
         self.responses.setObjectName("responses")
 
-        #Compile button
+        # Compile button
         self.compileButton = QtWidgets.QPushButton(self.centerWidget)
         font = QtGui.QFont("Helvetica")
         font.setPointSize(34)
@@ -497,7 +508,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setCentralWidget(self.centerWidget)
 
-        #Toolbar
+        # Toolbar
         self.menubar = QtWidgets.QMenuBar(self)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 470, 22))
         self.menubar.setObjectName("menubar")
@@ -618,7 +629,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionSave)
         self.menuFile.addAction(self.actionSave_As)
-        
+
         self.menuEdit.addAction(self.actionPreferences)
 
         self.menuHelp.addAction(self.actionAbout_GeckoLoader)
@@ -628,8 +639,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuEdit.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
-        
-        #Statusbar
+
+        # Statusbar
         self.statusbar = QtWidgets.QStatusBar(self)
         self.statusbar.setObjectName("statusbar")
         self.setStatusBar(self.statusbar)
@@ -640,7 +651,7 @@ class MainWindow(QtWidgets.QMainWindow):
         QtCore.QMetaObject.connectSlotsByName(self)
 
     def _lstrip_textboxes(self):
-        attributes = [item for item in vars(self) if not item.startswith('__')]
+        attributes = [item for item in vars(self) if not item.startswith("__")]
 
         for item in attributes:
             item = getattr(self, item)
@@ -661,8 +672,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.optionsLabel.setEnabled(True)
         self.allocLabel.setEnabled(True)
         self.allocLineEdit.setEnabled(True)
-        self.handlerTypeLabel.setEnabled(True)
-        self.handlerTypeSelect.setEnabled(True)
         self.hookTypeLabel.setEnabled(True)
         self.hookTypeSelect.setEnabled(True)
         self.txtCodesIncludeLabel.setEnabled(True)
@@ -683,80 +692,227 @@ class MainWindow(QtWidgets.QMainWindow):
             self.gctFileTextBox.setEnabled(True)
             self.gctFolderTextBox.setEnabled(True)
 
-        if self.dolTextBox.text().lower().endswith(".dol") and len(self.dolTextBox.text()) > 4:
-            self.compileButton.setEnabled(self.gctFileTextBox.text() != "" or self.gctFolderTextBox.text() != "")
+        if (
+            self.dolTextBox.text().lower().endswith(".dol")
+            and len(self.dolTextBox.text()) > 4
+        ):
+            self.compileButton.setEnabled(
+                self.gctFileTextBox.text() != "" or self.gctFolderTextBox.text() != ""
+            )
         else:
             self.compileButton.setDisabled(True)
 
     def retranslate_ui(self):
-        self.setWindowTitle(QtWidgets.QApplication.translate("MainWindow", f"GeckoLoader {self.apiRevision} - untitled", None))
-        self.menuFile.setTitle(QtWidgets.QApplication.translate("MainWindow", "&File", None))
-        self.menuEdit.setTitle(QtWidgets.QApplication.translate("MainWindow", "&Edit", None))
-        self.menuHelp.setTitle(QtWidgets.QApplication.translate("MainWindow", "&Help", None))
-        self.actionOpen.setText(QtWidgets.QApplication.translate("MainWindow", "&Open Session...", None))
-        self.actionOpen.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Open a session", None))
-        self.actionOpen.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+O", None))
-        self.actionClose.setText(QtWidgets.QApplication.translate("MainWindow", "&Close Session...", None))
-        self.actionClose.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Close the current session", None))
-        self.actionClose.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+Shift+C", None))
-        self.actionSave.setText(QtWidgets.QApplication.translate("MainWindow", "&Save Session", None))
-        self.actionSave.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Save the current session", None))
-        self.actionSave.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+S", None))
-        self.actionSave_As.setText(QtWidgets.QApplication.translate("MainWindow", "&Save Session As...", None))
-        self.actionSave_As.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Save the current session to the specified location", None))
-        self.actionSave_As.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+Shift+S", None))
-        self.actionUndo.setText(QtWidgets.QApplication.translate("MainWindow", "Undo", None))
-        self.actionUndo.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Undo the last action", None))
-        self.actionUndo.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+Z", None))
-        self.actionRedo.setText(QtWidgets.QApplication.translate("MainWindow", "Redo", None))
-        self.actionRedo.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Redo the last action", None))
-        self.actionRedo.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+Shift+Z", None))
-        self.actionCut.setText(QtWidgets.QApplication.translate("MainWindow", "Cut", None))
-        self.actionCut.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Cuts the selected text and places it on the clipboard", None))
-        self.actionCut.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+X", None))
-        self.actionCopy.setText(QtWidgets.QApplication.translate("MainWindow", "Copy", None))
-        self.actionCopy.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Copies the selected text and places it on the clipboard", None))
-        self.actionCopy.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+C", None))
-        self.actionPaste.setText(QtWidgets.QApplication.translate("MainWindow", "Paste", None))
-        self.actionPaste.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Paste the contents of the clipboard", None))
-        self.actionPaste.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+V", None))
-        self.actionDelete.setText(QtWidgets.QApplication.translate("MainWindow", "Delete", None))
-        self.actionDelete.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Deletes the selected text", None))
-        self.actionSelect_All.setText(QtWidgets.QApplication.translate("MainWindow", "Select All", None))
-        self.actionSelect_All.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Select all of the text", None))
-        self.actionSelect_All.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+A", None))
-        self.actionPreferences.setText(QtWidgets.QApplication.translate("MainWindow", "&Preferences...", None))
-        self.actionPreferences.setStatusTip(QtWidgets.QApplication.translate("MainWindow", "Open the application preferences dialog", None))
-        self.actionAbout_GeckoLoader.setText(QtWidgets.QApplication.translate("MainWindow", "About &GeckoLoader...", None))
-        self.actionAbout_Qt.setText(QtWidgets.QApplication.translate("MainWindow", "About &Qt...", None))
-        self.actionCheck_Update.setText(QtWidgets.QApplication.translate("MainWindow", "&Check Update", None))
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate(
+                "MainWindow", f"GeckoLoader {self.apiRevision} - untitled", None
+            )
+        )
+        self.menuFile.setTitle(
+            QtWidgets.QApplication.translate("MainWindow", "&File", None)
+        )
+        self.menuEdit.setTitle(
+            QtWidgets.QApplication.translate("MainWindow", "&Edit", None)
+        )
+        self.menuHelp.setTitle(
+            QtWidgets.QApplication.translate("MainWindow", "&Help", None)
+        )
+        self.actionOpen.setText(
+            QtWidgets.QApplication.translate("MainWindow", "&Open Session...", None)
+        )
+        self.actionOpen.setStatusTip(
+            QtWidgets.QApplication.translate("MainWindow", "Open a session", None)
+        )
+        self.actionOpen.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+O", None)
+        )
+        self.actionClose.setText(
+            QtWidgets.QApplication.translate("MainWindow", "&Close Session...", None)
+        )
+        self.actionClose.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Close the current session", None
+            )
+        )
+        self.actionClose.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+Shift+C", None)
+        )
+        self.actionSave.setText(
+            QtWidgets.QApplication.translate("MainWindow", "&Save Session", None)
+        )
+        self.actionSave.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Save the current session", None
+            )
+        )
+        self.actionSave.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+S", None)
+        )
+        self.actionSave_As.setText(
+            QtWidgets.QApplication.translate("MainWindow", "&Save Session As...", None)
+        )
+        self.actionSave_As.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Save the current session to the specified location", None
+            )
+        )
+        self.actionSave_As.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+Shift+S", None)
+        )
+        self.actionUndo.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Undo", None)
+        )
+        self.actionUndo.setStatusTip(
+            QtWidgets.QApplication.translate("MainWindow", "Undo the last action", None)
+        )
+        self.actionUndo.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+Z", None)
+        )
+        self.actionRedo.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Redo", None)
+        )
+        self.actionRedo.setStatusTip(
+            QtWidgets.QApplication.translate("MainWindow", "Redo the last action", None)
+        )
+        self.actionRedo.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+Shift+Z", None)
+        )
+        self.actionCut.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Cut", None)
+        )
+        self.actionCut.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow",
+                "Cuts the selected text and places it on the clipboard",
+                None,
+            )
+        )
+        self.actionCut.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+X", None)
+        )
+        self.actionCopy.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Copy", None)
+        )
+        self.actionCopy.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow",
+                "Copies the selected text and places it on the clipboard",
+                None,
+            )
+        )
+        self.actionCopy.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+C", None)
+        )
+        self.actionPaste.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Paste", None)
+        )
+        self.actionPaste.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Paste the contents of the clipboard", None
+            )
+        )
+        self.actionPaste.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+V", None)
+        )
+        self.actionDelete.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Delete", None)
+        )
+        self.actionDelete.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Deletes the selected text", None
+            )
+        )
+        self.actionSelect_All.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Select All", None)
+        )
+        self.actionSelect_All.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Select all of the text", None
+            )
+        )
+        self.actionSelect_All.setShortcut(
+            QtWidgets.QApplication.translate("MainWindow", "Ctrl+A", None)
+        )
+        self.actionPreferences.setText(
+            QtWidgets.QApplication.translate("MainWindow", "&Preferences...", None)
+        )
+        self.actionPreferences.setStatusTip(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "Open the application preferences dialog", None
+            )
+        )
+        self.actionAbout_GeckoLoader.setText(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "About &GeckoLoader...", None
+            )
+        )
+        self.actionAbout_Qt.setText(
+            QtWidgets.QApplication.translate("MainWindow", "About &Qt...", None)
+        )
+        self.actionCheck_Update.setText(
+            QtWidgets.QApplication.translate("MainWindow", "&Check Update", None)
+        )
 
-        self.filesLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Files", None))
+        self.filesLabel.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Files", None)
+        )
 
-        self.dolButton.setText(QtWidgets.QApplication.translate("MainWindow", "Open DOL", None))
-        self.gctFileButton.setText(QtWidgets.QApplication.translate("MainWindow", "Open Codes", None))
-        self.orFolderLabel.setText(QtWidgets.QApplication.translate("MainWindow", "-"*40 + "OR" + "-"*40, None))
-        self.gctFolderButton.setText(QtWidgets.QApplication.translate("MainWindow", "Open Folder", None))
-        self.destButton.setText(QtWidgets.QApplication.translate("MainWindow", "Destination", None))
+        self.dolButton.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Open DOL", None)
+        )
+        self.gctFileButton.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Open Codes", None)
+        )
+        self.orFolderLabel.setText(
+            QtWidgets.QApplication.translate(
+                "MainWindow", "-" * 40 + "OR" + "-" * 40, None
+            )
+        )
+        self.gctFolderButton.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Open Folder", None)
+        )
+        self.destButton.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Destination", None)
+        )
 
-        self.optionsLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Options", None))
+        self.optionsLabel.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Options", None)
+        )
 
-        self.allocLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Allocation", None))
-        self.allocLineEdit.setPlaceholderText(QtWidgets.QApplication.translate("MainWindow", "AUTO", None))
+        self.allocLabel.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Allocation", None)
+        )
+        self.allocLineEdit.setPlaceholderText(
+            QtWidgets.QApplication.translate("MainWindow", "AUTO", None)
+        )
 
-        self.handlerTypeLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Codehandler", None))
-        self.handlerTypeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "FULL", None))
-        self.handlerTypeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "MINI", None))
+        self.hookTypeLabel.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Code Hook", None)
+        )
+        self.hookTypeSelect.setItemText(
+            0, QtWidgets.QApplication.translate("Dialog", "VI", None)
+        )
+        self.hookTypeSelect.setItemText(
+            1, QtWidgets.QApplication.translate("Dialog", "GX", None)
+        )
+        self.hookTypeSelect.setItemText(
+            2, QtWidgets.QApplication.translate("Dialog", "PAD", None)
+        )
 
-        self.hookTypeLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Code Hook", None))
-        self.hookTypeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "VI", None))
-        self.hookTypeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "GX", None))
-        self.hookTypeSelect.setItemText(2, QtWidgets.QApplication.translate("Dialog", "PAD", None))
+        self.txtCodesIncludeLabel.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Include Codes", None)
+        )
+        self.txtCodesIncludeSelect.setItemText(
+            0, QtWidgets.QApplication.translate("Dialog", "ACTIVE", None)
+        )
+        self.txtCodesIncludeSelect.setItemText(
+            1, QtWidgets.QApplication.translate("Dialog", "ALL", None)
+        )
 
-        self.txtCodesIncludeLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Include Codes", None))
-        self.txtCodesIncludeSelect.setItemText(0, QtWidgets.QApplication.translate("Dialog", "ACTIVE", None))
-        self.txtCodesIncludeSelect.setItemText(1, QtWidgets.QApplication.translate("Dialog", "ALL", None))
+        self.exOptionsButton.setText(
+            QtWidgets.QApplication.translate("MainWindow", "Advanced Settings", None)
+        )
 
-        self.exOptionsButton.setText(QtWidgets.QApplication.translate("MainWindow", "Advanced Settings", None))
-
-        self.compileButton.setText(QtWidgets.QApplication.translate("MainWindow", "RUN", None))
+        self.compileButton.setText(
+            QtWidgets.QApplication.translate("MainWindow", "RUN", None)
+        )

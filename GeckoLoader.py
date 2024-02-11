@@ -93,7 +93,7 @@ class GeckoLoaderCli(CommandLineParser):
             metavar="TYPE",
         )
         self.add_argument(
-            "--handerpath",
+            "--handlerpath",
             help="Define the path to the codehandler file, overrides the default",
             metavar="PATH",
         )
@@ -937,7 +937,6 @@ class GUI(object):
         hookAddress = self.uiexSettings.codehookLineEdit.text().strip()
         initAddress = self.uiexSettings.kernelHookLineEdit.text().strip()
         txtInclude = self.ui.txtCodesIncludeSelect.currentText().strip()
-        codeHandlerType = self.ui.handlerTypeSelect.currentText().strip()
         optimize = self.uiexSettings.optimizeCodes.isChecked()
         protect = self.uiexSettings.protectCodes.isChecked()
         encrypt = self.uiexSettings.encryptCodes.isChecked()
@@ -949,8 +948,6 @@ class GUI(object):
             gct,
             "-t",
             txtInclude,
-            "--handler",
-            codeHandlerType,
             "--hooktype",
             hookType,
         ]
